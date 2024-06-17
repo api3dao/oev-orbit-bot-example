@@ -14,20 +14,20 @@ import {
   type BigNumberish,
   type BytesLike,
   type EthersError,
+  Contract,
 } from 'ethers';
 
-import {
-  ExtendedSelfMulticall__factory as ExtendedSelfMulticallFactory,
-  ExternalMulticallSimulator__factory as ExternalMulticallSimulatorFactory,
-  Multicall3__factory as Multicall3Factory,
-  OErc20Delegator__factory as OErc20DelegatorFactory,
-  OEtherV2__factory as OEtherV2Factory,
-  OrbitEtherLiquidator__factory as OrbitEtherLiquidatorFactory,
-  OrbitSpaceStation__factory as OrbitSpaceStationFactory,
-  type ExternalMulticallSimulator,
-} from '../../typechain-types';
 import { loadEnv } from '../env';
 
+import {
+  externalMulticallSimulatorInterface,
+  multicall3Interface,
+  OErc20DelegatorInterface,
+  OEtherV2Interface,
+  oevExtendedSelfMulticallInterface,
+  orbitEtherLiquidatorInterface,
+  orbitSpaceStationInterface,
+} from './interfaces';
 import { type EnvConfig, envConfigSchema } from './schema';
 
 export const contractAddresses = {
@@ -187,31 +187,38 @@ export interface Call {
   data: BytesLike;
 }
 
-export async function simulateTransmutationMulticall(
-  externalMulticallSimulator: ExternalMulticallSimulator,
-  transmutationCalls: Call[]
-) {
+export async function simulateTransmutationMulticall(externalMulticallSimulator: Contract, transmutationCalls: Call[]) {
   const transmutationCalldata = transmutationCalls.map((call) =>
-    externalMulticallSimulator.interface.encodeFunctionData('functionCall', [call.target, call.data])
+    externalMulticallSimulatorInterface.encodeFunctionData('functionCall', [call.target, call.data])
   );
+   
   const multicallReturndata = await externalMulticallSimulator
     .connect(new VoidSigner(ethers.ZeroAddress).connect(blastProvider))
+    // @ts-expect-error removal of typechain
     .multicall.staticCall(transmutationCalldata);
-  return multicallReturndata.map((returndata) => ethers.AbiCoder.defaultAbiCoder().decode(['bytes'], returndata)[0]);
+
+   
+  return multicallReturndata.map((returndata: string) => ethers.AbiCoder.defaultAbiCoder().decode(['bytes'], returndata)[0]);
 }
 
 export const wallet = new ethers.Wallet(env.ORBIT_BOT_WALLET_PRIVATE_KEY);
 
-export const orbitSpaceStation = OrbitSpaceStationFactory.connect(contractAddresses.orbitSpaceStation, blastProvider);
-export const oEtherV2 = OEtherV2Factory.connect(contractAddresses.oEtherV2, blastProvider); // NOTE: There is also OEther (v1) which is deprecated and uses Pyth.
-export const oUsdb = OErc20DelegatorFactory.connect(contractAddresses.oUsdb, blastProvider);
-export const multicall3 = Multicall3Factory.connect(contractAddresses.multicall3, blastProvider);
-export const externalMulticallSimulator = ExternalMulticallSimulatorFactory.connect(
-  contractAddresses.externalMulticallSimulator,
+export const orbitSpaceStation = new Contract(
+  contractAddresses.orbitSpaceStation,
+  orbitSpaceStationInterface,
   blastProvider
 );
-export const orbitEtherLiquidator = OrbitEtherLiquidatorFactory.connect(
+export const oEtherV2 = new Contract(contractAddresses.oEtherV2, OEtherV2Interface, blastProvider);
+export const oUsdb = new Contract(contractAddresses.oUsdb, OErc20DelegatorInterface, blastProvider);
+export const multicall3 = new Contract(contractAddresses.multicall3, multicall3Interface, blastProvider);
+export const externalMulticallSimulator = new Contract(
+  contractAddresses.externalMulticallSimulator,
+  externalMulticallSimulatorInterface,
+  blastProvider
+);
+export const orbitEtherLiquidator = new Contract(
   contractAddresses.orbitEtherLiquidator,
+  orbitEtherLiquidatorInterface,
   blastProvider
 );
 export const api3OevEthUsdProxy = DapiProxyWithOevFactory.connect(contractAddresses.api3OevEthUsdProxy, blastProvider);
@@ -219,7 +226,7 @@ export const api3ServerV1 = Api3ServerV1Factory.connect(contractAddresses.api3Se
 
 // https://github.com/GoogleChromeLabs/jsbi/issues/30#issuecomment-953187833
 (BigInt.prototype as any).toJSON = function () {
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+   
   return this.toString();
 };
 
@@ -246,8 +253,9 @@ export const oevNetworkProvider = new ethers.JsonRpcProvider(
 );
 
 export const oevAuctionHouse = OevAuctionHouseFactory.connect(contractAddresses.oevAuctionHouse, oevNetworkProvider);
-export const oevExtendedSelfMulticall = ExtendedSelfMulticallFactory.connect(
+export const oevExtendedSelfMulticall = new Contract(
   contractAddresses.oevExtendedSelfMulticall,
+  oevExtendedSelfMulticallInterface,
   oevNetworkProvider
 );
 

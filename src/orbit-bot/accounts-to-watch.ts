@@ -18,6 +18,7 @@ import {
   orbitSpaceStation,
   getPercentageValue,
 } from './commons';
+import { orbitSpaceStationInterface } from './interfaces';
 
 const SAFE_COLLATERAL_BUFFER_PERCENT = 3;
 
@@ -58,12 +59,12 @@ export const getAccountsToWatch = async (startBlockNumber?: number | null) => {
     // TODO: This should be in the contract
     const getAccountLiquidityCalls = borrowerBatch.map((borrower) => ({
       target: contractAddresses.orbitSpaceStation,
-      callData: orbitSpaceStation.interface.encodeFunctionData('getAccountLiquidity', [borrower]),
+      callData: orbitSpaceStationInterface.encodeFunctionData('getAccountLiquidity', [borrower]),
     }));
     logger.info('Fetching account liquidity for accounts', { count: borrowerBatch.length });
     const [_blockNumber2, accountLiquidityReturndata] = await multicall3.aggregate.staticCall(getAccountLiquidityCalls);
     const accountLiquidity = accountLiquidityReturndata.map((data) =>
-      orbitSpaceStation.interface.decodeFunctionResult('getAccountLiquidity', data)
+      orbitSpaceStationInterface.decodeFunctionResult('getAccountLiquidity', data)
     );
 
     const priceOracleAddress = await orbitSpaceStation.oracle();

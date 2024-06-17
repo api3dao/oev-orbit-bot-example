@@ -8,6 +8,5 @@
     "declarationMap": false, // No need to build the declaration files because the project is not a library.
     "sourceMap": true
   },
-  "include": ["./src/**/*", "reset.d.ts"],
-  "exclude": ["./src/**/*.test.ts"]
+  "include": ["./src/**/*"]
 }

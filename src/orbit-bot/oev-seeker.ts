@@ -5,7 +5,6 @@ import { ethers, formatEther } from 'ethers';
 import { type Draft, produce } from 'immer';
 import { chunk, range, uniq } from 'lodash';
 
-import { PriceOracle__factory as PriceOracleFactory } from '../../typechain-types';
 import { loadEnv } from '../env';
 import { logger } from '../logger';
 
@@ -467,10 +466,7 @@ const attemptLiquidation = async () => {
     },
   ];
   const [_blockNumber, returndata] = await multicall3.aggregate3Value.staticCall(calls, { value: bidAmount });
-  const [profitEth, profitUsd] = orbitEtherLiquidator.interface.decodeFunctionResult(
-    'liquidate',
-    returndata!.at(-1) as any
-  );
+  const [profitEth, profitUsd] = orbitEtherLiquidator.interface.decodeFunctionResult('liquidate', returndata!.at(-1));
   if (profitUsd <= MIN_LIQUIDATION_PROFIT_USD) {
     logger.info('Liquidation still possible, but profit is now too low', {
       eth: formatEther(profitEth),
@@ -558,7 +554,7 @@ const findOevLiquidation = async () => {
     const returndata = await simulateTransmutationMulticall(externalMulticallSimulator, transmutationCalls);
     const [_setDapiNameReturndata, _updateBeaconWithSignedDataReturndata, ...accountLiquidityReturndata] = returndata;
     accountLiquidity.push(
-      ...accountLiquidityReturndata.map((data) =>
+      ...accountLiquidityReturndata.map((data: string) =>
         orbitSpaceStation.interface.decodeFunctionResult('getAccountLiquidity', data)
       )
     );
