@@ -37,6 +37,6 @@ module.exports = {
     'jest/prefer-importing-jest-globals': 'off',
 
     // Removal of typechain
-    '@typescript-eslint/no-unsafe-call': "off"
+    '@typescript-eslint/no-unsafe-call': 'off',
   },
 };

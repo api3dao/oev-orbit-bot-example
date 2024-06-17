@@ -191,14 +191,15 @@ export async function simulateTransmutationMulticall(externalMulticallSimulator:
   const transmutationCalldata = transmutationCalls.map((call) =>
     externalMulticallSimulatorInterface.encodeFunctionData('functionCall', [call.target, call.data])
   );
-   
+
   const multicallReturndata = await externalMulticallSimulator
     .connect(new VoidSigner(ethers.ZeroAddress).connect(blastProvider))
     // @ts-expect-error removal of typechain
     .multicall.staticCall(transmutationCalldata);
 
-   
-  return multicallReturndata.map((returndata: string) => ethers.AbiCoder.defaultAbiCoder().decode(['bytes'], returndata)[0]);
+  return multicallReturndata.map(
+    (returndata: string) => ethers.AbiCoder.defaultAbiCoder().decode(['bytes'], returndata)[0]
+  );
 }
 
 export const wallet = new ethers.Wallet(env.ORBIT_BOT_WALLET_PRIVATE_KEY);
@@ -226,7 +227,6 @@ export const api3ServerV1 = Api3ServerV1Factory.connect(contractAddresses.api3Se
 
 // https://github.com/GoogleChromeLabs/jsbi/issues/30#issuecomment-953187833
 (BigInt.prototype as any).toJSON = function () {
-   
   return this.toString();
 };
 
