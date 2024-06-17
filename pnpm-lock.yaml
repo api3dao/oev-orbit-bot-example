@@ -49,12 +49,6 @@ devDependencies:
   '@total-typescript/ts-reset':
     specifier: ^0.5.1
     version: 0.5.1
-  '@typechain/ethers-v6':
-    specifier: ^0.5.1
-    version: 0.5.1(ethers@6.13.0)(typechain@8.3.2)(typescript@5.4.5)
-  '@typechain/hardhat':
-    specifier: ^9.1.0
-    version: 9.1.0(@typechain/ethers-v6@0.5.1)(ethers@6.13.0)(hardhat@2.22.5)(typechain@8.3.2)
   '@types/jest':
     specifier: ^29.5.12
     version: 29.5.12
@@ -106,9 +100,6 @@ devDependencies:
   ts-node:
     specifier: ^10.9.2
     version: 10.9.2(@types/node@20.14.2)(typescript@5.4.5)
-  typechain:
-    specifier: ^8.3.2
-    version: 8.3.2(typescript@5.4.5)
   typescript:
     specifier: ^5.4.5
     version: 5.4.5
