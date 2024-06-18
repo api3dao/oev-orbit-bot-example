@@ -23,7 +23,7 @@
     "eslint:check": "eslint --report-unused-disable-directives --cache --ext js,ts . --max-warnings 0",
     "eslint:fix": "pnpm run eslint:check --fix",
     "orbit-bot:cli-utils": "pnpm ts-node src/orbit-bot/cli-utils.ts",
-    "orbit-bot:oev-bot": "pnpm ts-node src/orbit-bot/oev-bot.ts",
+    "orbit-bot:oev-bot": "pnpm ts-node src/orbit-bot/oev-seeker.ts",
     "prepare": "husky",
     "prettier:check": "prettier --check \"./**/*.{js,ts,md,json,html}\"",
     "prettier:fix": "prettier --write \"./**/*.{js,ts,md,json,html}\"",

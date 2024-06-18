@@ -1,7 +1,7 @@
 import { Interface } from 'ethers';
 
 export const priceOracleInterface = new Interface([
-  'function getUnderlyingPrice(address oToken) virtual external view returns (uint)',
+  'function getUnderlyingPrice(address oToken) external view returns (uint)',
 ]);
 
 // TODO replace these with reduced interfaces like above
@@ -17,6 +17,7 @@ export const orbitSpaceStationInterface = new Interface([
 export const OEtherV2Interface = new Interface([
   'function balanceOf(address owner) external view override returns (uint256)',
   'function balanceOfUnderlying(address owner) external override returns (uint)',
+  'event Borrow(address borrower, uint borrowAmount, uint accountBorrows, uint totalBorrows)',
 ]);
 
 export const OErc20DelegatorInterface = OEtherV2Interface;
@@ -27,10 +28,12 @@ export const multicall3Interface = new Interface([
 ]);
 
 export const orbitEtherLiquidatorInterface = new Interface([
+  'constructor (address spaceStation)',
   'function liquidate(address target,address borrower,address collateral,uint256 value) external returns (uint256 profitEth, uint256 profitUsd)',
   'function getAccountDetails(address account, address oEther) external view returns (address[] memory oTokens,uint256[] memory borrowBalanceEth,uint256[] memory tokenBalanceEth)',
 ]);
 
 export const externalMulticallSimulatorInterface = new Interface([
-  'function functionCall(address target,bytes memory data) external override onlyEthCall returns (bytes memory)',
+  'function functionCall(address target,bytes memory data) external override returns (bytes memory)',
+  'function multicall(bytes[] calldata data) external override returns (bytes[] memory returndata)',
 ]);

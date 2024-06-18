@@ -8,7 +8,7 @@ import { chunk, range, uniq } from 'lodash';
 import { loadEnv } from '../env';
 import { logger } from '../logger';
 
-import { getAccountsFromFile, getAccountsToWatch } from './accounts-to-watch';
+import { getAccountsFromFile, getAccountsToWatch, persistAccountsToWatch } from './accounts-to-watch';
 import {
   MIN_LIQUIDATION_PROFIT_USD,
   contractAddresses,
@@ -32,7 +32,7 @@ import {
   sanitizeEthersError,
   api3ServerV1,
 } from './commons';
-import { priceOracleInterface } from './interfaces';
+import { multicall3Interface, priceOracleInterface } from './interfaces';
 import { type EnvConfig, envConfigSchema } from './schema';
 
 interface BidDetails {
@@ -119,6 +119,7 @@ export const updateStorage = (updater: (draft: Draft<Storage>) => void) => {
 };
 
 export const runAccountFetcherLoop = async (frequencyMs: number) => {
+  let saveCounter = 0;
   while (true) {
     const { targetChainData } = getStorage();
     if (!targetChainData) throw new Error('Target chain data not initialized.');
@@ -128,6 +129,13 @@ export const runAccountFetcherLoop = async (frequencyMs: number) => {
       draft.targetChainData!.borrowers = uniq([...targetChainData.borrowers, ...borrowers]);
       draft.targetChainData!.lastBlock = lastBlock;
     });
+    if (saveCounter % 5 === 0) {
+      // eslint-disable-next-line @typescript-eslint/require-await
+      void persistAccountsToWatch(async () => getStorage().targetChainData!);
+      logger.info(`Persisted accounts to watch to file.`);
+    }
+    saveCounter++;
+
     await sleep(frequencyMs);
   }
 };
@@ -376,7 +384,7 @@ const expediteActiveBids = async () => {
   }
 };
 
-const runSeeker = async () => {
+export const runSeeker = async () => {
   await initializeTargetChainData();
   await initializeOevNetworkData();
   await expediteActiveBids(); // NOTE: We want to expedite the active bids, so that the bot can start fresh.
@@ -466,8 +474,8 @@ const attemptLiquidation = async () => {
       ]),
     },
   ];
-  // @ts-ignore
-  const [_blockNumber, returndata] = await multicall3.aggregate3Value.staticCall(calls, { value: bidAmount });
+
+  const [_blockNumber, returndata] = await multicall3.aggregate3Value!.staticCall(calls, { value: bidAmount });
   const [profitEth, profitUsd] = orbitEtherLiquidator.interface.decodeFunctionResult('liquidate', returndata!.at(-1));
   if (profitUsd <= MIN_LIQUIDATION_PROFIT_USD) {
     logger.info('Liquidation still possible, but profit is now too low', {
@@ -477,8 +485,12 @@ const attemptLiquidation = async () => {
     return;
   }
 
-  // @ts-ignore
-  const tx = await multicall3.connect(wallet.connect(blastProvider)).aggregate3Value(calls, { value: bidAmount });
+  const walletConnectedMultivall3 = new Contract(
+    contractAddresses.multicall3,
+    multicall3Interface,
+    wallet.connect(blastProvider)
+  );
+  const tx = await walletConnectedMultivall3.aggregate3Value!(calls, { value: bidAmount });
   await tx.wait(1);
   logger.info('Liquidation transaction', { txHash: tx.hash });
 
@@ -738,8 +750,3 @@ const findOevLiquidation = async () => {
     bidAmount: formatEther(bidAmount),
   });
 };
-
-void runSeeker().catch((error) => {
-  logger.error('Unexpected error', error);
-  process.exit(1);
-});

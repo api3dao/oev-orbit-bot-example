@@ -22,6 +22,10 @@ import { orbitSpaceStationInterface, priceOracleInterface } from './interfaces';
 
 const SAFE_COLLATERAL_BUFFER_PERCENT = 3;
 
+export const experimantalFn = () => {
+  process.stdout.write('It runs\n');
+};
+
 export const getAccountsToWatch = async (startBlockNumber?: number | null) => {
   logger.info('Preparing accounts to watch');
 
@@ -114,8 +118,8 @@ export const getAccountsToWatch = async (startBlockNumber?: number | null) => {
 
 export const ACCOUNTS_TO_WATCH_FILE_PATH = join(__dirname, 'accounts-to-watch.json.ignore');
 
-export const persistAccountsToWatch = async () => {
-  const accounts = await getAccountsToWatch();
+export const persistAccountsToWatch = async (accountsFn = getAccountsToWatch) => {
+  const accounts = await accountsFn();
   writeFileSync(ACCOUNTS_TO_WATCH_FILE_PATH, JSON.stringify(accounts, null, 2));
 };
 
