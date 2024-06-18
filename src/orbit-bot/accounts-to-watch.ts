@@ -1,9 +1,9 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { Contract, type EventLog } from 'ethers';
 import { chunk } from 'lodash';
 
-import { PriceOracle__factory as PriceOracleFactory } from '../../typechain-types';
 import { logger } from '../logger';
 
 import {
@@ -18,7 +18,7 @@ import {
   orbitSpaceStation,
   getPercentageValue,
 } from './commons';
-import { orbitSpaceStationInterface } from './interfaces';
+import { orbitSpaceStationInterface, priceOracleInterface } from './interfaces';
 
 const SAFE_COLLATERAL_BUFFER_PERCENT = 3;
 
@@ -30,10 +30,10 @@ export const getAccountsToWatch = async (startBlockNumber?: number | null) => {
   const endBlockNumber = await blastProvider.getBlockNumber();
   while (actualStartBlockNumber < endBlockNumber) {
     const actualEndBlockNumber = Math.min(actualStartBlockNumber + 10_000, endBlockNumber);
-    const events = await oEtherV2.queryFilter(oEtherV2.filters.Borrow(), actualStartBlockNumber, actualEndBlockNumber);
+    const events = await oEtherV2.queryFilter(oEtherV2.filters.Borrow!(), actualStartBlockNumber, actualEndBlockNumber);
     logger.info('Fetched events from block', { start: actualStartBlockNumber, end: actualEndBlockNumber });
 
-    for (const event of events) borrowerSet.add(event.args.borrower);
+    for (const event of events) borrowerSet.add((event as EventLog).args.borrower);
     actualStartBlockNumber += 10_000;
     await sleep(100);
   }
@@ -51,8 +51,8 @@ export const getAccountsToWatch = async (startBlockNumber?: number | null) => {
         contractAddresses.oEtherV2,
       ]),
     }));
-    const [_blockNumber1, getAccountDetailsEncoded] = await multicall3.aggregate.staticCall(getAccountDetailsCalls);
-    const accountDetails = getAccountDetailsEncoded.map((data) =>
+    const [_blockNumber1, getAccountDetailsEncoded] = await multicall3.aggregate!.staticCall(getAccountDetailsCalls);
+    const accountDetails = getAccountDetailsEncoded.map((data: string) =>
       orbitEtherLiquidator.interface.decodeFunctionResult('getAccountDetails', data)
     );
 
@@ -62,14 +62,15 @@ export const getAccountsToWatch = async (startBlockNumber?: number | null) => {
       callData: orbitSpaceStationInterface.encodeFunctionData('getAccountLiquidity', [borrower]),
     }));
     logger.info('Fetching account liquidity for accounts', { count: borrowerBatch.length });
-    const [_blockNumber2, accountLiquidityReturndata] = await multicall3.aggregate.staticCall(getAccountLiquidityCalls);
-    const accountLiquidity = accountLiquidityReturndata.map((data) =>
+    const [_blockNumber2, accountLiquidityReturndata] =
+      await multicall3.aggregate!.staticCall(getAccountLiquidityCalls);
+    const accountLiquidity = accountLiquidityReturndata.map((data: string) =>
       orbitSpaceStationInterface.decodeFunctionResult('getAccountLiquidity', data)
     );
 
-    const priceOracleAddress = await orbitSpaceStation.oracle();
-    const priceOracle = PriceOracleFactory.connect(priceOracleAddress, blastProvider);
-    const currentEthUsdPrice = await priceOracle.getUnderlyingPrice(contractAddresses.oEtherV2);
+    const priceOracleAddress = await orbitSpaceStation.oracle!();
+    const priceOracle = new Contract(priceOracleAddress, priceOracleInterface, blastProvider); // PriceOracleFactory.connect(priceOracleAddress, blastProvider);
+    const currentEthUsdPrice = await priceOracle.getUnderlyingPrice!(contractAddresses.oEtherV2);
 
     // eslint-disable-next-line unicorn/no-for-loop
     for (let i = 0; i < accountDetails.length; i++) {

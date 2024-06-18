@@ -1,7 +1,6 @@
 import { hardhatConfig } from '@api3/chains';
 import {
   Api3ServerV1__factory as Api3ServerV1Factory,
-  DapiProxyWithOev__factory as DapiProxyWithOevFactory,
   OevAuctionHouse__factory as OevAuctionHouseFactory,
 } from '@api3/contracts';
 import {
@@ -24,7 +23,6 @@ import {
   multicall3Interface,
   OErc20DelegatorInterface,
   OEtherV2Interface,
-  oevExtendedSelfMulticallInterface,
   orbitEtherLiquidatorInterface,
   orbitSpaceStationInterface,
 } from './interfaces';
@@ -210,7 +208,10 @@ export const orbitSpaceStation = new Contract(
   blastProvider
 );
 export const oEtherV2 = new Contract(contractAddresses.oEtherV2, OEtherV2Interface, blastProvider);
-export const oUsdb = new Contract(contractAddresses.oUsdb, OErc20DelegatorInterface, blastProvider);
+export const oUsdb = new Contract(contractAddresses.oUsdb, OErc20DelegatorInterface, blastProvider) as Contract & {
+  balanceOf: (address: string) => Promise<bigint>;
+  balanceOfUnderlying: { staticCall: (address: string) => Promise<bigint> };
+};
 export const multicall3 = new Contract(contractAddresses.multicall3, multicall3Interface, blastProvider);
 export const externalMulticallSimulator = new Contract(
   contractAddresses.externalMulticallSimulator,
@@ -222,7 +223,6 @@ export const orbitEtherLiquidator = new Contract(
   orbitEtherLiquidatorInterface,
   blastProvider
 );
-export const api3OevEthUsdProxy = DapiProxyWithOevFactory.connect(contractAddresses.api3OevEthUsdProxy, blastProvider);
 export const api3ServerV1 = Api3ServerV1Factory.connect(contractAddresses.api3ServerV1, blastProvider);
 
 // https://github.com/GoogleChromeLabs/jsbi/issues/30#issuecomment-953187833
@@ -253,11 +253,6 @@ export const oevNetworkProvider = new ethers.JsonRpcProvider(
 );
 
 export const oevAuctionHouse = OevAuctionHouseFactory.connect(contractAddresses.oevAuctionHouse, oevNetworkProvider);
-export const oevExtendedSelfMulticall = new Contract(
-  contractAddresses.oevExtendedSelfMulticall,
-  oevExtendedSelfMulticallInterface,
-  oevNetworkProvider
-);
 
 // eslint-disable-next-line functional/no-classes
 class SanitizedEthersError extends Error {

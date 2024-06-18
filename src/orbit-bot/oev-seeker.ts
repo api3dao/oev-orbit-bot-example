@@ -1,7 +1,7 @@
 import type { AwardedBidEvent } from '@api3/contracts/dist/typechain-types/api3-server-v1/OevAuctionHouse';
 import type { TypedEventLog } from '@api3/contracts/dist/typechain-types/common';
 import { go } from '@api3/promise-utils';
-import { ethers, formatEther } from 'ethers';
+import { Contract, ethers, formatEther } from 'ethers';
 import { type Draft, produce } from 'immer';
 import { chunk, range, uniq } from 'lodash';
 
@@ -32,6 +32,7 @@ import {
   sanitizeEthersError,
   api3ServerV1,
 } from './commons';
+import { priceOracleInterface } from './interfaces';
 import { type EnvConfig, envConfigSchema } from './schema';
 
 interface BidDetails {
@@ -465,6 +466,7 @@ const attemptLiquidation = async () => {
       ]),
     },
   ];
+  // @ts-ignore
   const [_blockNumber, returndata] = await multicall3.aggregate3Value.staticCall(calls, { value: bidAmount });
   const [profitEth, profitUsd] = orbitEtherLiquidator.interface.decodeFunctionResult('liquidate', returndata!.at(-1));
   if (profitUsd <= MIN_LIQUIDATION_PROFIT_USD) {
@@ -475,6 +477,7 @@ const attemptLiquidation = async () => {
     return;
   }
 
+  // @ts-ignore
   const tx = await multicall3.connect(wallet.connect(blastProvider)).aggregate3Value(calls, { value: bidAmount });
   await tx.wait(1);
   logger.info('Liquidation transaction', { txHash: tx.hash });
@@ -496,8 +499,8 @@ const findOevLiquidation = async () => {
   // Print the wallet and the liquidator contract balances.
   logger.info('Wallet ETH balance', {
     eth: formatEther(await blastProvider.getBalance(wallet.address)),
-    oEth: formatEther(await oEtherV2.balanceOf(wallet.address)),
-    ethInOEth: formatEther(await oEtherV2.balanceOfUnderlying.staticCall(wallet.address)),
+    oEth: formatEther(await oEtherV2.balanceOf!(wallet.address)),
+    ethInOEth: formatEther(await oEtherV2.balanceOfUnderlying!.staticCall(wallet.address)),
   });
   logger.info('Wallet USDB balance', {
     oUsdb: formatEther(await oUsdb.balanceOf(wallet.address)),
@@ -505,8 +508,8 @@ const findOevLiquidation = async () => {
   });
   logger.info('OrbitEtherLiquidator ETH balance', {
     eth: formatEther(await blastProvider.getBalance(contractAddresses.orbitEtherLiquidator)),
-    oEth: formatEther(await oEtherV2.balanceOf(contractAddresses.orbitEtherLiquidator)),
-    ethInOEth: formatEther(await oEtherV2.balanceOfUnderlying.staticCall(contractAddresses.orbitEtherLiquidator)),
+    oEth: formatEther(await oEtherV2.balanceOf!(contractAddresses.orbitEtherLiquidator)),
+    ethInOEth: formatEther(await oEtherV2.balanceOfUnderlying!.staticCall(contractAddresses.orbitEtherLiquidator)),
   });
   logger.info('OrbitEtherLiquidator USDB balance', {
     oUsdb: formatEther(await oUsdb.balanceOf(contractAddresses.orbitEtherLiquidator)),
@@ -514,13 +517,13 @@ const findOevLiquidation = async () => {
   });
 
   // Print out the close factor. Currently, the value is set to 0.5, so we can only liquidate 50% of the borrowed asset.
-  const closeFactor = await orbitSpaceStation.closeFactorMantissa();
+  const closeFactor = await orbitSpaceStation.closeFactorMantissa!();
   logger.info('Close factor', { closeFactor: formatEther(closeFactor) });
 
   // Transmutation data.
-  const priceOracleAddress = await orbitSpaceStation.oracle();
-  const priceOracle = PriceOracleFactory.connect(priceOracleAddress, blastProvider);
-  const currentEthUsdPrice = await priceOracle.getUnderlyingPrice(contractAddresses.oEtherV2);
+  const priceOracleAddress = await orbitSpaceStation.oracle!();
+  const priceOracle = new Contract(priceOracleAddress, priceOracleInterface, blastProvider); // PriceOracleFactory.connect(priceOracleAddress, blastProvider);
+  const currentEthUsdPrice = await priceOracle.getUnderlyingPrice!(contractAddresses.oEtherV2);
   logger.info('Current ETH/USD price', { price: formatEther(currentEthUsdPrice) });
   // NOTE: The data feed is configured with 1% deviation threshold and will be automatically updated after 60s delay.
   // This means that the OEV bot will be on timer to get its bid awarded and to capture the liquidation opportunity.
@@ -618,7 +621,7 @@ const findOevLiquidation = async () => {
 
     const orbitEtherLiquidatorBalance = await blastProvider.getBalance(contractAddresses.orbitEtherLiquidator);
     const maxBorrowRepay = min(
-      (ethBorrowAsset.borrowBalance * closeFactor) / 10n ** 18n,
+      (ethBorrowAsset.borrowBalance * (closeFactor as bigint)) / 10n ** 18n,
       orbitEtherLiquidatorBalance,
       getPercentageValue(maxTokenBalanceAsset.tokenBalance, 95) // NOTE: We leave some buffer to be sure there is enough collateral after the interest accrual.
     );
