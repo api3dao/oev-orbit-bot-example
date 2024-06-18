@@ -140,6 +140,15 @@ export const runAccountFetcherLoop = async (frequencyMs: number) => {
   }
 };
 
+export const persistAccountsToWatchLoop = async () => {
+  while (process.env.PERSIST_ACCOUNTS_TO_WATCH) {
+    await sleep(60 * 1000);
+    // eslint-disable-next-line @typescript-eslint/require-await
+    await persistAccountsToWatch(async () => getStorage().targetChainData!);
+    logger.info(`Persisted accounts to watch to file.`);
+  }
+};
+
 const initializeTargetChainData = async () => {
   while (true) {
     const now = Date.now();
@@ -389,8 +398,9 @@ export const runSeeker = async () => {
   await initializeOevNetworkData();
   await expediteActiveBids(); // NOTE: We want to expedite the active bids, so that the bot can start fresh.
 
-  void runAccountFetcherLoop(5000);
-  void runAttemptLiquidationLoop(2000);
+  void runAccountFetcherLoop(100);
+  void runAttemptLiquidationLoop(100);
+  void persistAccountsToWatchLoop();
 };
 
 export const runAttemptLiquidationLoop = async (frequencyMs: number) => {
