@@ -33,4 +33,4 @@ COPY --chown=node:node --from=base /app/ .
 
 ENV NODE_ENV=production
 
-ENTRYPOINT ["node", "dist/src/orbit-bot/oev-seeker.js"]
+ENTRYPOINT ["node", "dist/src/index.js"]

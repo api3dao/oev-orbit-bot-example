@@ -4,16 +4,28 @@ import {
   OevAuctionHouse__factory as OevAuctionHouseFactory,
 } from '@api3/contracts';
 import {
+  FetchRequest,
+  JsonRpcProvider,
+  Network,
+  ZeroAddress,
   type ErrorCode,
   VoidSigner,
-  ethers,
   parseEther,
   type AddressLike,
-  type BaseWallet,
+  BaseWallet,
   type BigNumberish,
   type BytesLike,
-  type EthersError,
   Contract,
+  Wallet,
+  hexlify,
+  randomBytes,
+  getBytes,
+  solidityPackedKeccak256,
+  SigningKey,
+  AbiCoder,
+  type Networkish,
+  type JsonRpcApiProviderOptions,
+  type EthersError,
 } from 'ethers';
 
 import { loadEnv } from '../env';
@@ -38,7 +50,7 @@ export const contractAddresses = {
   oEtherV2: '0x0872b71EFC37CB8DdE22B2118De3d800427fdba0',
   oUsdb: '0x9aECEdCD6A82d26F2f86D331B17a1C1676442A87',
   oWbtc: '0x8c415331761063e5d6b1c8e700f996b13603fc2e',
-  orbitEtherLiquidator: '0xAb6702A6Fd7f0F2596f70c273376036B44a10709', // TODO replace this with a convenience contract / not permissioned
+  orbitEtherLiquidator: process.env.ETHER_LIQUIDATOR_ADDRESS ?? '0xAb6702A6Fd7f0F2596f70c273376036B44a10709', // TODO replace this with a convenience contract / not permissioned
   // orbitEtherLiquidator: '0x66E9CA29cD757E3c7C063163deCDB04feb1fC2bC',
   orbitSpaceStation: '0x1E18C3cb491D908241D0db14b081B51be7B6e652',
 
@@ -70,18 +82,18 @@ export const min = (...args: bigint[]) => {
 };
 
 export function generateRandomBytes32() {
-  return ethers.hexlify(ethers.randomBytes(32));
+  return hexlify(randomBytes(32));
 }
 
 export async function signData(airnode: BaseWallet, templateId: BytesLike, timestamp: number, data: BytesLike) {
   const signature = await airnode.signMessage(
-    ethers.getBytes(ethers.solidityPackedKeccak256(['bytes32', 'uint256', 'bytes'], [templateId, timestamp, data]))
+    getBytes(solidityPackedKeccak256(['bytes32', 'uint256', 'bytes'], [templateId, timestamp, data]))
   );
   return signature;
 }
 
 export function deriveBeaconId(airnodeAddress: AddressLike, templateId: BytesLike) {
-  return ethers.solidityPackedKeccak256(['address', 'bytes32'], [airnodeAddress, templateId]);
+  return solidityPackedKeccak256(['address', 'bytes32'], [airnodeAddress, templateId]);
 }
 
 export async function getDapiTransmutationCalls(
@@ -91,12 +103,12 @@ export async function getDapiTransmutationCalls(
 ) {
   // Generating a private key may be a bit too compute-intensive. We can hardcode a mock one instead.
   const MOCK_AIRNODE_PRIVATE_KEY = '0x0fbcf3c01c9bcde58a6efa722b8d9019043dfaf5cdf557693442732e24b9f5ab';
-  const airnode = new ethers.BaseWallet(new ethers.SigningKey(MOCK_AIRNODE_PRIVATE_KEY));
+  const airnode = new BaseWallet(new SigningKey(MOCK_AIRNODE_PRIVATE_KEY));
   // We want to use a Beacon ID that no one else has used to avoid griefing. Randomly generating the
   // template ID would solve that.
   const templateId = generateRandomBytes32();
   const timestamp = Math.floor(Date.now() / 1000);
-  const data = ethers.AbiCoder.defaultAbiCoder().encode(['int256'], [value]);
+  const data = AbiCoder.defaultAbiCoder().encode(['int256'], [value]);
   const signature = await signData(airnode, templateId, timestamp, data);
   const beaconId = deriveBeaconId(airnode.address, templateId);
   const api3ServerV1Interface = Api3ServerV1Factory.createInterface();
@@ -119,14 +131,14 @@ export async function getDapiTransmutationCalls(
 }
 
 // eslint-disable-next-line functional/no-classes
-export class ProviderWithFallback extends ethers.JsonRpcProvider {
-  private readonly fallbackProvider: ethers.JsonRpcProvider | null = null;
+export class ProviderWithFallback extends JsonRpcProvider {
+  private readonly fallbackProvider: JsonRpcProvider | null = null;
 
   public constructor(
-    url: ethers.FetchRequest | string,
-    fallbackProvider: ethers.JsonRpcProvider,
-    network?: ethers.Networkish,
-    options?: ethers.JsonRpcApiProviderOptions
+    url: FetchRequest | string,
+    fallbackProvider: JsonRpcProvider,
+    network?: Networkish,
+    options?: JsonRpcApiProviderOptions
   ) {
     super(url, network, options);
     this.fallbackProvider = fallbackProvider;
@@ -155,15 +167,15 @@ export class ProviderWithFallback extends ethers.JsonRpcProvider {
   }
 }
 
-export const blastNetwork = new ethers.Network('blast', hardhatConfig.networks().blast!.chainId);
-export const blastFallbackFetchRequest = new ethers.FetchRequest(
+export const blastNetwork = new Network('blast', hardhatConfig.networks().blast!.chainId);
+export const blastFallbackFetchRequest = new FetchRequest(
   env.ORBIT_BLAST_REBLOK_RPC_API_KEY ? 'https://rpc.envelop.is/blast' : 'https://blast-rpc.publicnode.com'
 );
 blastFallbackFetchRequest.timeout = 10_000; // NOTE: The default FetchRequest timeout is 300_000 ms
-export const blastFallbackProvider = new ethers.JsonRpcProvider(blastFallbackFetchRequest, blastNetwork, {
+export const blastFallbackProvider = new JsonRpcProvider(blastFallbackFetchRequest, blastNetwork, {
   staticNetwork: blastNetwork,
 });
-const blastFetchRequest = new ethers.FetchRequest(
+const blastFetchRequest = new FetchRequest(
   env.ORBIT_BLAST_REBLOK_RPC_API_KEY
     ? `https://rpc.reblok.io/blast?apikey=${env.ORBIT_BLAST_REBLOK_RPC_API_KEY}`
     : 'https://blast-rpc.publicnode.com'
@@ -184,16 +196,14 @@ export async function simulateTransmutationMulticall(externalMulticallSimulator:
   );
 
   const multicallReturndata = await externalMulticallSimulator
-    .connect(new VoidSigner(ethers.ZeroAddress).connect(blastProvider))
+    .connect(new VoidSigner(ZeroAddress).connect(blastProvider))
     // @ts-expect-error removal of typechain
     .multicall.staticCall(transmutationCalldata);
 
-  return multicallReturndata.map(
-    (returndata: string) => ethers.AbiCoder.defaultAbiCoder().decode(['bytes'], returndata)[0]
-  );
+  return multicallReturndata.map((returndata: string) => AbiCoder.defaultAbiCoder().decode(['bytes'], returndata)[0]);
 }
 
-export const wallet = new ethers.Wallet(env.ORBIT_BOT_WALLET_PRIVATE_KEY);
+export const wallet = Wallet.fromPhrase(env.MNEMONIC);
 
 export const orbitSpaceStation = new Contract(
   contractAddresses.orbitSpaceStation,
@@ -236,14 +246,10 @@ export const sleep = async (ms: number) => new Promise((resolve) => setTimeout(r
 
 export const oevNetwork = hardhatConfig.networks()['oev-network']!;
 
-export const oevNetworkProvider = new ethers.JsonRpcProvider(
-  oevNetwork.url,
-  new ethers.Network('oev-network', oevNetwork.chainId),
-  {
-    staticNetwork: new ethers.Network('oev-network', oevNetwork.chainId),
-    pollingInterval: 500,
-  }
-);
+export const oevNetworkProvider = new JsonRpcProvider(oevNetwork.url, new Network('oev-network', oevNetwork.chainId), {
+  staticNetwork: new Network('oev-network', oevNetwork.chainId),
+  pollingInterval: 500,
+});
 
 export const oevAuctionHouse = OevAuctionHouseFactory.connect(contractAddresses.oevAuctionHouse, oevNetworkProvider);
 

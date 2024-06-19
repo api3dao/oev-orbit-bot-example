@@ -7,7 +7,7 @@ import { baseEnvConfigSchema } from '../schema';
 export const envConfigSchema = z
   // Intentionally not using strictObject here because we want to allow other environment variables to be present.
   .object({
-    ORBIT_BOT_WALLET_PRIVATE_KEY: z.string(),
+    MNEMONIC: z.string().transform((value) => value.replaceAll('"', '')),
     ORBIT_BLAST_REBLOK_RPC_API_KEY: z.string().optional(),
     PERSIST_ACCOUNTS_TO_WATCH: z.string().optional(),
   })
