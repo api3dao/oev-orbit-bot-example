@@ -12,12 +12,5 @@ coverage
 secrets.env
 .eslintcache
 
-# Hardhat files
-cache
-artifacts
-coverage.json
-typechain-types
-ignition/deployments/chain-31337
-
 # Custom ignore files
 *.ignore

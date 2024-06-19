@@ -19,12 +19,5 @@
 **/secrets.env
 **/.eslintcache
 
-# Hardhat files
-**/cache
-**/artifacts
-**/coverage.json
-# **/typechain-types # These need to be included because they are part of sources.
-**/ignition/deployments/chain-31337
-
 # Custom ignore files
 **/*.ignore
