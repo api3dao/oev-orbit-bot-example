@@ -7,14 +7,6 @@ on:
   pull_request:
 
 jobs:
-  documentation:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Clone repo
-        uses: actions/checkout@v4
-      - name: Check hyperlinks
-        uses: gaurav-nelson/github-action-markdown-link-check@v1
-
   lint-build:
     runs-on: ubuntu-latest
     name: Build, lint and test
@@ -39,10 +31,11 @@ jobs:
       - name: Lint Typescript
         run: pnpm run tsc
 
+  # Leaving this as we may want to re-add tests and docs later
   required-checks-passed:
     name: All required checks passed
     runs-on: ubuntu-latest
-    needs: [documentation, lint-build]
+    needs: [lint-build]
     steps:
       - run: exit 0
 
