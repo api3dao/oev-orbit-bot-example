@@ -3,6 +3,63 @@
 This repository contains an OEV Seeker bot implementation targeting [Orbit Lending](https://orbitlending.io/). To
 understand how OEV works, visit [the OEV documentation](https://replace-me.com/todo).
 
+## Process Overview
+
+The OEV Seeker follows the following process to extract OEV:
+
+- Initialisation
+  - Get log events from the target chain and build a list of accounts to watch for possible liquidation opportunities
+  - Get log events from the OEV Network to determine awarded/live/lost bids
+- Main Loop
+  - Continuously watch log events from Orbit to maintain a list of accounts to watch
+  - Attempt liquidations when opportunities are detected
+
+## Opportunity Detection and Value Extraction - In Depth
+
+Given a list of accounts to watch, the app does the following:
+
+Refer to `findOevLiquidation()`.
+
+### Search for an OEV liquidation opportunity
+
+- Simulate liquidation potential by _transmuting_ the oracle's value for a feed
+  - Find Orbit's Price Oracle: `orbitSpaceStation.oracle`
+    - Read the current value of the oracle for the target feed: `priceOracle.getUnderlyingPrice(oEtherV2)`
+  - Apply a transmutation value to the read price: `getPercentageValue(currentEthUsdPrice, 100.2)`
+  - Create a set of calls that can be used to transmute the value of the oracle temporarily
+    - Set the dAPI Name to a beacon we control:
+      `api3ServerV1Interface.encodeFunctionData('setDapiName', [dapiName, beaconId])`
+    - Set the value of the target beacon to our transmuted value: `updateBeaconWithSignedData`
+  - In a single call, apply the transmutation call data and retrieve account liquidity for all accounts
+    - refer to
+      [ExternalMulticallSimulator.sol](https://github.com/api3dao/oev-searcher/blob/main/contracts/api3-contracts/utils/ExternalMulticallSimulator.sol)
+- For all accounts assessed using a transmuted oracle value sort by the biggest shortfall.
+- For all shortfall accounts, re-simulate the transmutation call, simulate a liquidation and determine the profit.
+- Find the most profitable liquidation (using ETH and USD components).
+- Bid on an update for the feed
+  - ```typescript
+    const bidDetails: BidDetails = {
+      oevProxyAddress: contractAddresses.api3OevEthUsdProxy,
+      conditionType: BID_CONDITION.GTE,
+      conditionValue: transmutationValue,
+      updateSenderAddress: contractAddresses.multicall3,
+      nonce,
+    };
+    ```
+- Store the active bid's parameters
+
+### Attempt to exploit the OEV liquidation opportunity
+
+Refer to `attemptLiquidation()`
+
+- Listen for the award, expiry or loss of the active bid
+- If the bid is awarded, encode a multicall call set containing
+  - Call #1: Call to the API3 Server with the awarded bid details as call data
+  - Call #2: Call the Orbit Ether Liquidator contract with the liquidation parameters
+- Simulate the liquidation multicall and determine the profitability - bail if the profit is below the minimum
+- Execute the liquidation transaction
+- Report the fulfilment on the OEV Network
+
 ## Running the OEV Seeker in Docker
 
 ### Configuration

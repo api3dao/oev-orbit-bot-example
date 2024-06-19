@@ -9,6 +9,7 @@ export const envConfigSchema = z
   .object({
     ORBIT_BOT_WALLET_PRIVATE_KEY: z.string(),
     ORBIT_BLAST_REBLOK_RPC_API_KEY: z.string().optional(),
+    PERSIST_ACCOUNTS_TO_WATCH: z.string().optional(),
   })
   .merge(baseEnvConfigSchema)
   .strip(); // We parse from ENV variables of the process which has many variables that we don't care about.

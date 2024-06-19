@@ -55,7 +55,6 @@ export const deploymentBlockNumbers = {
   oUsdb: 215_021, // https://blastscan.io/tx/0x4f4e4c86e6e8d81793c2088a4fb16d1dee3262597e42864754fcb4bdb04dd04a
 };
 
-// TODO: This is OEV bot specific so it should be moved to OEV bot
 export const oevAuctioneerConfig = {
   bidTopic: '0x76302d70726f642d61756374696f6e6565720000000000000000000000000000',
   minBidTimeToLiveSeconds: 15n,
@@ -68,13 +67,6 @@ export const min = (...args: bigint[]) => {
   let mn = args[0]!;
   for (let i = 1; i < args.length; i++) if (args[i]! < mn) mn = args[i]!;
   return mn;
-};
-
-export const max = (...args: bigint[]) => {
-  if (args.length === 0) throw new Error('max() requires at least one argument');
-  let mx = args[0]!;
-  for (let i = 1; i < args.length; i++) if (args[i]! > mx) mx = args[i]!;
-  return mx;
 };
 
 export function generateRandomBytes32() {

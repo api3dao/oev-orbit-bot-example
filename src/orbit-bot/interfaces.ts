@@ -1,4 +1,6 @@
-import { Interface } from 'ethers';
+import { AbiCoder, Interface, keccak256, solidityPacked } from 'ethers';
+
+import type { BidDetails } from './storage';
 
 export const priceOracleInterface = new Interface([
   'function getUnderlyingPrice(address oToken) external view returns (uint)',
@@ -37,3 +39,28 @@ export const externalMulticallSimulatorInterface = new Interface([
   'function functionCall(address target,bytes memory data) external override returns (bytes memory)',
   'function multicall(bytes[] calldata data) external override returns (bytes[] memory returndata)',
 ]);
+
+// See https://github.com/api3dao/oev-auction-house?tab=readme-ov-file#biddetails
+export const encodeBidDetails = (bidDetails: BidDetails) => {
+  const { oevProxyAddress, conditionType, conditionValue, updateSenderAddress, nonce } = bidDetails;
+
+  return AbiCoder.defaultAbiCoder().encode(
+    ['address', 'uint256', 'int224', 'address', 'bytes32'],
+    [oevProxyAddress, conditionType, conditionValue, updateSenderAddress, nonce]
+  );
+};
+
+export const decodeBidDetails = (encodedBidDetails: string): BidDetails => {
+  const bidDetails = AbiCoder.defaultAbiCoder().decode(
+    ['address', 'uint256', 'int224', 'address', 'bytes32'],
+    encodedBidDetails
+  );
+  const [oevProxyAddress, conditionType, conditionValue, updateSenderAddress, nonce] = bidDetails;
+  return { oevProxyAddress, conditionType, conditionValue, updateSenderAddress, nonce };
+};
+
+export const deriveBidId = (bidderAddress: string, bidTopic: string, encodedBidDetails: string) => {
+  return keccak256(
+    solidityPacked(['address', 'bytes32', 'bytes32'], [bidderAddress, bidTopic, keccak256(encodedBidDetails)])
+  );
+};

@@ -2,7 +2,6 @@ import type { AwardedBidEvent } from '@api3/contracts/dist/typechain-types/api3-
 import type { TypedEventLog } from '@api3/contracts/dist/typechain-types/common';
 import { go } from '@api3/promise-utils';
 import { Contract, ethers, formatEther } from 'ethers';
-import { type Draft, produce } from 'immer';
 import { chunk, range, uniq } from 'lodash';
 
 import { loadEnv } from '../env';
@@ -32,94 +31,68 @@ import {
   sanitizeEthersError,
   api3ServerV1,
 } from './commons';
-import { multicall3Interface, priceOracleInterface } from './interfaces';
+import {
+  decodeBidDetails,
+  deriveBidId,
+  encodeBidDetails,
+  multicall3Interface,
+  priceOracleInterface,
+} from './interfaces';
 import { type EnvConfig, envConfigSchema } from './schema';
+import {
+  type AwardDetails,
+  type AwardedBidLog,
+  type BidDetails,
+  type ExpeditedBidExpirationLog,
+  getStorage,
+  type LiquidationParameters,
+  type OevNetworkLog,
+  type PlacedBidLog,
+  type TargetChainData,
+  updateStorage,
+} from './storage';
 
-interface BidDetails {
-  oevProxyAddress: string;
-  conditionType: bigint;
-  conditionValue: bigint;
-  updateSenderAddress: string;
-  nonce: string;
-}
+/**
+ * The seeker's main coordinator function.
+ *
+ * The function starts with initialisation calls:
+ * - Initialise the target chain related data (acquires accounts to watch)
+ *   - Refer to getAccountsToWatch() and getAccountsFromFile()
+ * - Initialise the OEV Network chain data
+ *   - Fetches OEV Network logs - this allows the app to determine won/lost bids
+ * - Expedite Active Bids
+ *   - Clear out existing bids, so that the app can start fresh
+ *
+ * Then, the function starts three loops:
+ * - Run account fetcher loop: listens for events that allow the app to track active accounts
+ *   - see getAccountsToWatch()
+ * - Run the liquidation attempt loop:
+ *   - it either attempts a liquidation with awarded OEV data or
+ *   - it tries to find an OEV liquidation opportunity
+ * - Persist accounts to watch loop: periodically commit the accounts to watch store to disk
+ *
+ * @async
+ * @function runSeeker
+ * @returns {Promise<void>} A promise that never resolves
+ */
+export const runSeeker = async () => {
+  await initializeTargetChainData();
+  await initializeOevNetworkData();
+  await expediteActiveBids(); // NOTE: We want to expedite the active bids, so that the bot can start fresh.
 
-interface AwardDetails {
-  proxyAddress: string;
-  dataFeedId: string;
-  updateId: string;
-  timestamp: bigint;
-  encodedValue: string;
-  value: bigint;
-  signatures: string[];
-}
-
-interface LiquidationParameters {
-  borrowTokenAddress: string;
-  borrower: string;
-  collateralTokenAddress: string;
-  maxBorrowRepay: bigint;
-  profitEth: bigint;
-  profitUsd: bigint;
-}
-
-interface CurrentlyActiveBid {
-  bidId: string;
-  bidAmount: bigint;
-  bidDetails: BidDetails;
-  expirationTimestamp: number;
-  liquidationParameters: LiquidationParameters;
-  blockNumber: number;
-}
-
-interface PlacedBidLog {
-  eventName: 'PlacedBid';
-  args: TypedEventLog<(typeof oevAuctionHouse)['filters']['PlacedBid']>['args'];
-  bidDetails: BidDetails;
-}
-
-interface AwardedBidLog {
-  eventName: 'AwardedBid';
-  args: TypedEventLog<(typeof oevAuctionHouse)['filters']['AwardedBid']>['args'];
-  awardDetails: AwardDetails;
-}
-
-interface ExpeditedBidExpirationLog {
-  eventName: 'ExpeditedBidExpiration';
-  args: TypedEventLog<(typeof oevAuctionHouse)['filters']['ExpeditedBidExpiration']>['args'];
-}
-
-type OevNetworkLog = AwardedBidLog | ExpeditedBidExpirationLog | PlacedBidLog;
-
-interface OevNetworkData {
-  lastFetchedBlock: number;
-  logs: OevNetworkLog[];
-}
-
-interface TargetChainData {
-  borrowers: string[];
-  lastBlock: number;
-}
-
-interface Storage {
-  currentlyActiveBid: CurrentlyActiveBid | null;
-  targetChainData: TargetChainData | null;
-  oevNetworkData: OevNetworkData | null;
-}
-
-let storage: Storage = {
-  currentlyActiveBid: null,
-  targetChainData: null,
-  oevNetworkData: null,
+  void runAccountFetcherLoop(100);
+  void runAttemptLiquidationLoop(100);
+  void persistAccountsToWatchLoop();
 };
 
-export const getStorage = () => storage;
-
-export const updateStorage = (updater: (draft: Draft<Storage>) => void) => {
-  storage = produce(storage, updater);
-};
-
+/**
+ * Runs a loop that listens for accounts to watch.
+ *
+ * @param {number} frequencyMs - The frequency in milliseconds at which to fetch account data.
+ * @returns {Promise<void>} - A promise that resolves when the loop is finished.
+ * @throws {Error} - If target chain data is not initialized.
+ */
 export const runAccountFetcherLoop = async (frequencyMs: number) => {
-  let saveCounter = 0;
   while (true) {
     const { targetChainData } = getStorage();
     if (!targetChainData) throw new Error('Target chain data not initialized.');
@@ -129,26 +102,37 @@ export const runAccountFetcherLoop = async (frequencyMs: number) => {
       draft.targetChainData!.borrowers = uniq([...targetChainData.borrowers, ...borrowers]);
       draft.targetChainData!.lastBlock = lastBlock;
     });
-    if (saveCounter % 5 === 0) {
-      // eslint-disable-next-line @typescript-eslint/require-await
-      void persistAccountsToWatch(async () => getStorage().targetChainData!);
-      logger.info(`Persisted accounts to watch to file.`);
-    }
-    saveCounter++;
 
     await sleep(frequencyMs);
   }
 };
 
+/**
+ * If the PERSIST_ACCOUNTS_TO_WATCH env is set, this loop will commit accounts to watch storage to disk every 3 minutes.
+ *
+ * @returns {Promise<void>} Should never resolve.
+ */
 export const persistAccountsToWatchLoop = async () => {
-  while (process.env.PERSIST_ACCOUNTS_TO_WATCH) {
-    await sleep(60 * 1000);
+  const { PERSIST_ACCOUNTS_TO_WATCH } = loadEnv<EnvConfig>(envConfigSchema);
+  while (PERSIST_ACCOUNTS_TO_WATCH) {
+    await sleep(3 * 60 * 1000);
     // eslint-disable-next-line @typescript-eslint/require-await
     await persistAccountsToWatch(async () => getStorage().targetChainData!);
     logger.info(`Persisted accounts to watch to file.`);
   }
 };
 
+/**
+ * Initializes the target chain data.
+ *
+ * This function retrieves the target chain data either from accounts to watch (in production)
+ * or from a file (in other environments). It then updates the storage with the obtained data.
+ *
+ * @async
+ * @function initializeTargetChainData
+ *
+ * @returns {void}
+ */
 const initializeTargetChainData = async () => {
   while (true) {
     const now = Date.now();
@@ -177,6 +161,16 @@ const initializeTargetChainData = async () => {
   }
 };
 
+/**
+ * Initializes the OEV network data by fetching and updating the logs.
+ * The logs allow the application to track awarded and lost bids.
+ * This function runs continuously until the initialization is successful.
+ * If an error occurs during initialization, it waits for 2 seconds before retrying.
+ *
+ * @async
+ * @function initializeOevNetworkData
+ * @returns {void}
+ */
 const initializeOevNetworkData = async () => {
   while (true) {
     const now = Date.now();
@@ -203,34 +197,6 @@ const initializeOevNetworkData = async () => {
     });
     await sleep(2000);
   }
-};
-
-// See https://github.com/api3dao/oev-auction-house?tab=readme-ov-file#biddetails
-const encodeBidDetails = (bidDetails: BidDetails) => {
-  const { oevProxyAddress, conditionType, conditionValue, updateSenderAddress, nonce } = bidDetails;
-
-  return ethers.AbiCoder.defaultAbiCoder().encode(
-    ['address', 'uint256', 'int224', 'address', 'bytes32'],
-    [oevProxyAddress, conditionType, conditionValue, updateSenderAddress, nonce]
-  );
-};
-
-const decodeBidDetails = (encodedBidDetails: string): BidDetails => {
-  const bidDetails = ethers.AbiCoder.defaultAbiCoder().decode(
-    ['address', 'uint256', 'int224', 'address', 'bytes32'],
-    encodedBidDetails
-  );
-  const [oevProxyAddress, conditionType, conditionValue, updateSenderAddress, nonce] = bidDetails;
-  return { oevProxyAddress, conditionType, conditionValue, updateSenderAddress, nonce };
-};
-
-const deriveBidId = (bidderAddress: string, bidTopic: string, encodedBidDetails: string) => {
-  return ethers.keccak256(
-    ethers.solidityPacked(
-      ['address', 'bytes32', 'bytes32'],
-      [bidderAddress, bidTopic, ethers.keccak256(encodedBidDetails)]
-    )
-  );
 };
 
 const BID_CONDITION = {
@@ -391,16 +357,6 @@ const expediteActiveBids = async () => {
     }
     logger.info('Expedited bid', { bidId, txHash: goExpedite.data.hash });
   }
-};
-
-export const runSeeker = async () => {
-  await initializeTargetChainData();
-  await initializeOevNetworkData();
-  await expediteActiveBids(); // NOTE: We want to expedite the active bids, so that the bot can start fresh.
-
-  void runAccountFetcherLoop(100);
-  void runAttemptLiquidationLoop(100);
-  void persistAccountsToWatchLoop();
 };
 
 export const runAttemptLiquidationLoop = async (frequencyMs: number) => {
