@@ -1,9 +1,4 @@
-import { readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
-
 import { Contract, ContractFactory, formatEther, parseEther } from 'ethers';
-
-import packageJson from '../package.json';
 
 import { persistAccountsToWatch } from './accounts-to-watch';
 import { blastProvider, contractAddresses, oEtherV2, oUsdb, wallet } from './commons';
@@ -99,14 +94,6 @@ const main = async () => {
     }
     case 'prepare-accounts-to-watch': {
       await persistAccountsToWatch();
-      return;
-    }
-    case 'prepare-deployment': {
-      logger.info('Preparing deployment');
-
-      const template = readFileSync(join(__dirname, 'deployments/orbit-bots.template.json'), 'utf8');
-      const deployment = template.replaceAll('<VERSION>', packageJson.version);
-      writeFileSync(join(__dirname, 'deployments/orbit-bots.json'), deployment);
       return;
     }
     default: {

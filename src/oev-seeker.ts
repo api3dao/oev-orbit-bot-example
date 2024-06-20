@@ -376,6 +376,13 @@ export const runAttemptLiquidationLoop = async (frequencyMs: number) => {
   }
 };
 
+/**
+ * Attempts to liquidate a currently active bid using an awarded bid.
+ *
+ * @throws {Error} If there is no currently active bid.
+ *
+ * @returns {Promise<void>}
+ */
 const attemptLiquidation = async () => {
   const { currentlyActiveBid } = getStorage();
   if (!currentlyActiveBid) throw new Error('No currently active bid.');
@@ -472,6 +479,15 @@ const attemptLiquidation = async () => {
   logger.info(`Reported fulfillment`, { txHash: reportTx.hash });
 };
 
+/**
+ * Finds and processes liquidations for accounts with a shortfall.
+ * Retrieves account balances and details, calculates potential liquidation opportunities,
+ * and determines the most profitable potential liquidation.
+ *
+ * Once a potential opportunity has been found, the app places a bid on the OEV network for that feed.
+ *
+ * @returns {void}
+ */
 const findOevLiquidation = async () => {
   // Print the wallet and the liquidator contract balances.
   logger.info('Wallet ETH balance', {

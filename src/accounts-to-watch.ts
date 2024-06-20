@@ -21,6 +21,13 @@ import { logger } from './logger';
 
 const SAFE_COLLATERAL_BUFFER_PERCENT = 3;
 
+/**
+ * Iterate through log events on Orbit to determine accounts worth watching.
+ *
+ * @async
+ * @param {number | null} startBlockNumber - The start block number to fetch events from. Optional.
+ * @returns {Object} - The borrowers and the last block number.
+ */
 export const getAccountsToWatch = async (startBlockNumber?: number | null) => {
   logger.info('Preparing accounts to watch');
 

@@ -1,6 +1,6 @@
-# oev-orbit-bot-example
+# OEV Orbit Bot Example
 
-This repository contains an example OEV Seeker bot implementation targeting [Orbit Lending](https://orbitlending.io/).
+This repository contains an example OEV Searcher bot implementation targeting [Orbit Lending](https://orbitlending.io/).
 To understand how OEV works, visit [the OEV documentation](https://replace-me.com/todo).
 
 Before running this application, be sure to read and understand the code.
@@ -18,11 +18,9 @@ The OEV Seeker follows this flow to extract OEV from Orbit Lending:
 
 ## Opportunity Detection and Value Extraction - In Depth
 
-Given a list of accounts to watch, the app does the following:
+Given a list of accounts to watch, the app does the following: (Refer to `findOevLiquidation()`)
 
-Refer to `findOevLiquidation()`.
-
-### Search for an OEV liquidation opportunity
+### Search for an OEV Liquidation Opportunity
 
 - Simulate liquidation potential by _transmuting_ the oracle's value for a feed
   - Find Orbit's Price Oracle: `orbitSpaceStation.oracle`
@@ -50,7 +48,7 @@ Refer to `findOevLiquidation()`.
     ```
 - Store the active bid's parameters
 
-### Attempt to exploit the OEV liquidation opportunity
+### Attempt to Exploit the OEV Liquidation Opportunity
 
 Refer to `attemptLiquidation()`
 
@@ -97,3 +95,8 @@ pnpm docker:build:amd64
 # Run the bot
 pnpm docker:run
 ```
+
+## Other notes
+
+- To withdraw all Eth funds from the liquidator contract, run: `pnpm orbit-bot:cli-utils withdraw-all-eth`
+- To withdraw all tokens from the liquidator contract, run: `pnpm orbit-bot:cli-utils withdraw-all-token`
