@@ -330,6 +330,16 @@ const buildOevNetworkState = () => {
 
 // TODO: Add logs everywhere
 // TODO: Move common constants to commons file
+/**
+ * Expedites bids - functionally equivalent to cancelling a bid by making it expire as quickly as possible.
+ * This is useful for clearing the on-chain state as far as this app is concerned, so it can start fresh.
+ *
+ * See https://github.com/api3dao/oev-auction-house/blob/ca81dcbb1e773bd50caa7b577b49cd63b3d5ebe7/contracts/OevAuctionHouse.sol#L594
+ *
+ * @async
+ * @function expediteActiveBids
+ * @returns {Promise<void>}
+ */
 const expediteActiveBids = async () => {
   const bids = buildOevNetworkState();
   const activeBids = bids.filter((bid) => bid.status === 'active');
