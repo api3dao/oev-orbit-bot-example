@@ -5,7 +5,7 @@ understand how OEV works, visit [the OEV documentation](https://replace-me.com/t
 
 ## Process Overview
 
-The OEV Seeker follows the following process to extract OEV:
+The OEV Seeker follows this flow to extract OEV from Orbit Lending:
 
 - Initialisation
   - Get log events from the target chain and build a list of accounts to watch for possible liquidation opportunities

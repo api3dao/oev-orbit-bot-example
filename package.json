@@ -43,18 +43,14 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
-    "@octokit/rest": "^20.1.1",
-    "@octokit/types": "^13.5.0",
     "@types/lodash": "^4.17.5",
     "@types/node": "^20.14.2",
     "@typescript-eslint/eslint-plugin": "^7.13.0",
     "@typescript-eslint/parser": "^7.13.0",
     "eslint": "^8.57.0",
     "eslint-plugin-import": "^2.29.1",
-    "eslint-plugin-jest": "^28.6.0",
     "ethers": "^6.13.0",
     "husky": "^9.0.11",
-    "is-wsl": "2.2.0",
     "prettier": "^3.3.1",
     "rimraf": "^5.0.7",
     "ts-node": "^10.9.2",
