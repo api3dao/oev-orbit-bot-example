@@ -1,7 +1,9 @@
-# oev-seeker
+# oev-orbit-bot-example
 
-This repository contains an OEV Seeker bot implementation targeting [Orbit Lending](https://orbitlending.io/). To
-understand how OEV works, visit [the OEV documentation](https://replace-me.com/todo).
+This repository contains an example OEV Seeker bot implementation targeting [Orbit Lending](https://orbitlending.io/).
+To understand how OEV works, visit [the OEV documentation](https://replace-me.com/todo).
+
+Before running this application, be sure to read and understand the code.
 
 ## Process Overview
 

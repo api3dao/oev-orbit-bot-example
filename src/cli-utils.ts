@@ -53,10 +53,13 @@ const main = async () => {
       ).deploy(contractAddresses.orbitSpaceStation);
 
       await deployTx.deploymentTransaction()?.wait(1);
+      const address = await deployTx.getAddress();
       logger.info('Deployed OrbitEtherLiquidator', {
         txHash: deployTx.deploymentTransaction()!.hash,
-        address: await deployTx.getAddress(),
+        address,
       });
+      process.stdout.write([`Add the following to your .env:`, `ETHER_LIQUIDATOR_ADDRESS=${address} `, ``].join('\n'));
+
       return;
     }
     case 'deposit': {
