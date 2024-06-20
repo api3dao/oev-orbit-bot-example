@@ -63,11 +63,11 @@ Refer to `attemptLiquidation()`
 ## Run the OEV Seeker Locally
 
 - Copy `accounts-to-watch.json.ignore.example` to `accounts-to-watch.json.ignore`
-  - `cp src/orbit-bot/accounts-to-watch.json.ignore.example src/orbit-bot/accounts-to-watch.json.ignore`
+  - `cp src/accounts-to-watch.json.ignore.example src/accounts-to-watch.json.ignore`
 - Copy `.env.example` to `.env` and populate it
   - `cp .env.example .env`
   - If this app is being run for the first time you'll need to deploy the EtherLiquidator contract:
-    - Run `pnpm ts-node src/orbit-bot/cli-utils deploy`
+    - Run `pnpm orbit-bot:cli-utils deploy`
     - Populate the `ETHER_LIQUIDATOR_ADDRESS` in .env with the address of the contract deployed above
 - Ensure that the account on Blast, associated with the `MNEMONIC` you provided has some funds on the OEV Network and
   Blast.

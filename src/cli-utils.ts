@@ -3,12 +3,12 @@ import { join } from 'node:path';
 
 import { Contract, ContractFactory, formatEther, parseEther } from 'ethers';
 
-import packageJson from '../../package.json';
-import { logger } from '../logger';
+import packageJson from '../package.json';
 
 import { persistAccountsToWatch } from './accounts-to-watch';
 import { blastProvider, contractAddresses, oEtherV2, oUsdb, wallet } from './commons';
 import { orbitEtherLiquidatorInterface } from './interfaces';
+import { logger } from './logger';
 
 const orbitEtherLiquidatorAddress = contractAddresses.orbitEtherLiquidator;
 

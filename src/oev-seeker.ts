@@ -4,9 +4,6 @@ import { go } from '@api3/promise-utils';
 import { Contract, ethers, formatEther } from 'ethers';
 import { chunk, range, uniq } from 'lodash';
 
-import { loadEnv } from '../env';
-import { logger } from '../logger';
-
 import { getAccountsFromFile, getAccountsToWatch, persistAccountsToWatch } from './accounts-to-watch';
 import {
   MIN_LIQUIDATION_PROFIT_USD,
@@ -31,6 +28,7 @@ import {
   sanitizeEthersError,
   api3ServerV1,
 } from './commons';
+import { loadEnv } from './env';
 import {
   decodeBidDetails,
   deriveBidId,
@@ -38,6 +36,7 @@ import {
   multicall3Interface,
   priceOracleInterface,
 } from './interfaces';
+import { logger } from './logger';
 import { type EnvConfig, envConfigSchema } from './schema';
 import {
   type AwardDetails,

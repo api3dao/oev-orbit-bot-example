@@ -4,8 +4,6 @@ import { join } from 'node:path';
 import { Contract, type EventLog } from 'ethers';
 import { chunk } from 'lodash';
 
-import { logger } from '../logger';
-
 import {
   contractAddresses,
   deploymentBlockNumbers,
@@ -19,12 +17,9 @@ import {
   getPercentageValue,
 } from './commons';
 import { orbitSpaceStationInterface, priceOracleInterface } from './interfaces';
+import { logger } from './logger';
 
 const SAFE_COLLATERAL_BUFFER_PERCENT = 3;
-
-export const experimantalFn = () => {
-  process.stdout.write('It runs\n');
-};
 
 export const getAccountsToWatch = async (startBlockNumber?: number | null) => {
   logger.info('Preparing accounts to watch');

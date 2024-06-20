@@ -28,8 +28,7 @@ import {
   type EthersError,
 } from 'ethers';
 
-import { loadEnv } from '../env';
-
+import { loadEnv } from './env';
 import {
   externalMulticallSimulatorInterface,
   multicall3Interface,

@@ -1,5 +1,5 @@
 import { logger } from './logger';
-import { runSeeker } from './orbit-bot/oev-seeker';
+import { runSeeker } from './oev-seeker';
 
 void runSeeker().catch((error) => {
   logger.error('Unexpected error', error);
