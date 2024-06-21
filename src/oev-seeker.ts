@@ -51,6 +51,9 @@ import {
   updateStorage,
 } from './storage';
 
+const BORROW_FETCHER_FREQUENCY_MS = 5000;
+const FIND_OR_ATTEMPT_LIQUIDATION_FREQUENCY_MS = 15_000;
+
 /**
  * The seeker's main coordinator function.
  *
@@ -79,8 +82,8 @@ export const runSeeker = async () => {
   await initializeOevNetworkData();
   await expediteActiveBids(); // NOTE: We want to expedite the active bids, so that the bot can start fresh.
 
-  void runAccountFetcherLoop(100);
-  void runAttemptLiquidationLoop(100);
+  void runAccountFetcherLoop(BORROW_FETCHER_FREQUENCY_MS);
+  void runAttemptLiquidationLoop(FIND_OR_ATTEMPT_LIQUIDATION_FREQUENCY_MS);
   void persistAccountsToWatchLoop();
 };
 
