@@ -4,6 +4,8 @@
 .log
 .tsbuildinfo
 .vscode
+artifacts
+cache
 build
 dist
 node_modules
@@ -14,3 +16,4 @@ secrets.env
 
 # Custom ignore files
 *.ignore
+hardhat.config.ts

@@ -15,7 +15,8 @@
     "url": "https://github.com/api3dao/oev-bot"
   },
   "scripts": {
-    "build": "pnpm clean && pnpm run tsc:build",
+    "build": "pnpm clean && pnpm hardhat compile --force && pnpm run tsc:build",
+    "contracts:build": "pnpm hardhat compile --force",
     "clean": "rimraf ./artifacts/ ./build ./cache ./coverage/ ./dist",
     "docker:build": "docker buildx build --target oev-bot --tag api3/oev-bot:latest .",
     "docker:run": "docker run -it --init --env-file ./.env --rm api3/oev-bot:latest",
@@ -43,6 +44,9 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@nomicfoundation/hardhat-ethers": "^3.0.6",
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "@openzeppelin/contracts": "^5.0.2",
     "@types/lodash": "^4.17.5",
     "@types/node": "^20.14.2",
     "@typescript-eslint/eslint-plugin": "^7.13.0",
@@ -50,6 +54,7 @@
     "eslint": "^8.57.0",
     "eslint-plugin-import": "^2.29.1",
     "ethers": "^6.13.0",
+    "hardhat": "^2.22.5",
     "husky": "^9.0.11",
     "prettier": "^3.3.1",
     "rimraf": "^5.0.7",

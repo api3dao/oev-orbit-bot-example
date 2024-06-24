@@ -129,7 +129,7 @@ component. Also refer to `simulateTransmutationMulticall` for the actual transmu
 - Copy `.env.example` to `.env` and populate it
   - `cp .env.example .env`
   - If this app is being run for the first time you'll need to compile, deploy and fund the EtherLiquidator contract:
-    - Compile the contract: `pnpm compile`
+    - Compile the contracts: `pnpm contracts:build`
     - Deploy the contract: Run `pnpm orbit-bot:cli-utils deploy`
     - Populate the `ETHER_LIQUIDATOR_ADDRESS` in .env with the address of the contract deployed above
     - Fund the contract: `pnpm orbit-bot:cli-utils deposit 1` (for 1 ETH)
