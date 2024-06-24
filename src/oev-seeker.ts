@@ -72,10 +72,6 @@ const FIND_OR_ATTEMPT_LIQUIDATION_FREQUENCY_MS = 15_000;
  *   - it either attempts a liquidation with awarded OEV data or
  *   - it tries to find an OEV liquidation opportunity
  * - Persist accounts to watch loop: periodically commit the accounts to watch store to disk
- *
- * @async
- * @function runBot
- * @returns {Promise<void>} A promise that never resolves
  */
 export const runBot = async () => {
   await initializeTargetChainData();
@@ -129,11 +125,6 @@ export const persistAccountsToWatchLoop = async () => {
  *
  * This function retrieves the target chain data either from accounts to watch (in production)
  * or from a file (in other environments). It then updates the storage with the obtained data.
- *
- * @async
- * @function initializeTargetChainData
- *
- * @returns {void}
  */
 const initializeTargetChainData = async () => {
   while (true) {
@@ -168,10 +159,6 @@ const initializeTargetChainData = async () => {
  * The logs allow the application to track awarded and lost bids.
  * This function runs continuously until the initialization is successful.
  * If an error occurs during initialization, it waits for 2 seconds before retrying.
- *
- * @async
- * @function initializeOevNetworkData
- * @returns {void}
  */
 const initializeOevNetworkData = async () => {
   while (true) {
@@ -338,10 +325,6 @@ const buildOevNetworkState = () => {
  * This is useful for clearing the on-chain state as far as this app is concerned, so it can start fresh.
  *
  * See https://github.com/api3dao/oev-auction-house/blob/ca81dcbb1e773bd50caa7b577b49cd63b3d5ebe7/contracts/OevAuctionHouse.sol#L594
- *
- * @async
- * @function expediteActiveBids
- * @returns {Promise<void>}
  */
 const expediteActiveBids = async () => {
   const bids = buildOevNetworkState();

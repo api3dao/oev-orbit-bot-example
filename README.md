@@ -132,9 +132,11 @@ component. Also refer to `simulateTransmutationMulticall` for the actual transmu
   - `cp src/accounts-to-watch.json.ignore.example src/accounts-to-watch.json.ignore`
 - Copy `.env.example` to `.env` and populate it
   - `cp .env.example .env`
-  - If this app is being run for the first time you'll need to deploy the EtherLiquidator contract:
-    - Run `pnpm orbit-bot:cli-utils deploy`
+  - If this app is being run for the first time you'll need to compile, deploy and fund the EtherLiquidator contract:
+    - Compile the contract: `pnpm compile`
+    - Deploy the contract: Run `pnpm orbit-bot:cli-utils deploy`
     - Populate the `ETHER_LIQUIDATOR_ADDRESS` in .env with the address of the contract deployed above
+    - Fund the contract: `DEPOSIT_AMOUNT_ETH=1 pnpm orbit-bot:cli-utils fund`
 - Ensure that the account on Blast, associated with the `MNEMONIC` you provided has some funds on the OEV Network and
   Blast.
 
