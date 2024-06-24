@@ -22,9 +22,9 @@ RUN pnpm run build
 # OEV Bot image
 # =============================================================================================
 # Prepare the app image
-FROM base AS oev-seeker
-ENV name="oev-seeker"
-LABEL application="oev-seeker" description="OEV Seeker container"
+FROM base AS oev-bot
+ENV name="oev-bot"
+LABEL application="oev-bot" description="OEV Bot container"
 WORKDIR /app
 
 # "node" Docker images come with a built-in, least-privileged user called "node"

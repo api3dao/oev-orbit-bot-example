@@ -55,7 +55,7 @@ const BORROW_FETCHER_FREQUENCY_MS = 5000;
 const FIND_OR_ATTEMPT_LIQUIDATION_FREQUENCY_MS = 15_000;
 
 /**
- * The seeker's main coordinator function.
+ * The bot's main coordinator function.
  *
  * The function starts with initialisation calls:
  * - Initialise the target chain related data (acquires accounts to watch)
@@ -74,10 +74,10 @@ const FIND_OR_ATTEMPT_LIQUIDATION_FREQUENCY_MS = 15_000;
  * - Persist accounts to watch loop: periodically commit the accounts to watch store to disk
  *
  * @async
- * @function runSeeker
+ * @function runBot
  * @returns {Promise<void>} A promise that never resolves
  */
-export const runSeeker = async () => {
+export const runBot = async () => {
   await initializeTargetChainData();
   await initializeOevNetworkData();
   await expediteActiveBids(); // NOTE: We want to expedite the active bids, so that the bot can start fresh.

@@ -1,5 +1,5 @@
 {
-  "name": "@api3/oev-seeker",
+  "name": "@api3/oev-bot",
   "version": "0.0.1",
   "keywords": [],
   "license": "MIT",
@@ -12,14 +12,14 @@
   "sideEffects": false,
   "repository": {
     "type": "git",
-    "url": "https://github.com/api3dao/oev-seeker"
+    "url": "https://github.com/api3dao/oev-bot"
   },
   "scripts": {
     "build": "pnpm clean && pnpm run tsc:build",
     "clean": "rimraf ./artifacts/ ./build ./cache ./coverage/ ./dist",
-    "docker:build": "docker buildx build --target oev-seeker --tag api3/oev-seeker:latest .",
-    "docker:build:amd64": "docker buildx build --target oev-seeker --platform linux/amd64 --tag api3/oev-seeker:latest .",
-    "docker:run": "docker run -it --init --env-file ./.env --rm api3/oev-seeker:latest",
+    "docker:build": "docker buildx build --target oev-bot --tag api3/oev-bot:latest .",
+    "docker:build:amd64": "docker buildx build --target oev-bot --platform linux/amd64 --tag api3/oev-bot:latest .",
+    "docker:run": "docker run -it --init --env-file ./.env --rm api3/oev-bot:latest",
     "eslint:check": "eslint --report-unused-disable-directives --cache --ext js,ts . --max-warnings 0",
     "eslint:fix": "pnpm run eslint:check --fix",
     "orbit-bot:cli-utils": "pnpm ts-node src/cli-utils.ts",
@@ -37,6 +37,7 @@
     "@api3/commons": "^0.9.1",
     "@api3/contracts": "4.1.1",
     "@api3/promise-utils": "^0.4.0",
+    "axios": "^1.7.2",
     "dotenv": "^16.4.5",
     "immer": "^10.1.1",
     "lodash": "^4.17.21",

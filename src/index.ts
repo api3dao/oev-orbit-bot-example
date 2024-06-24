@@ -1,7 +1,7 @@
 import { logger } from './logger';
-import { runSeeker } from './oev-seeker';
+import { runBot } from './oev-bot';
 
-void runSeeker().catch((error) => {
+void runBot().catch((error) => {
   logger.error('Unexpected error', error);
   process.exit(1);
 });
