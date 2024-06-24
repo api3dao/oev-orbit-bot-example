@@ -53,10 +53,6 @@ Given a list of accounts to watch, the app does the following: (Refer to `findOe
       };
       ```
 
-    ```
-
-    ```
-
 - Store the active bid's parameters
 
 ### Attempt to Exploit the OEV Liquidation Opportunity
@@ -136,7 +132,10 @@ component. Also refer to `simulateTransmutationMulticall` for the actual transmu
     - Compile the contract: `pnpm compile`
     - Deploy the contract: Run `pnpm orbit-bot:cli-utils deploy`
     - Populate the `ETHER_LIQUIDATOR_ADDRESS` in .env with the address of the contract deployed above
-    - Fund the contract: `DEPOSIT_AMOUNT_ETH=1 pnpm orbit-bot:cli-utils fund`
+    - Fund the contract: `pnpm orbit-bot:cli-utils deposit 1` (for 1 ETH)
+      - Note that you can withdraw ETH and tokens with:
+        - `pnpm orbit-bot:cli-utils withdraw-all-eth`
+        - `pnpm orbit-bot:cli-utils withdraw-all-token`
 - Ensure that the account on Blast, associated with the `MNEMONIC` you provided has some funds on the OEV Network and
   Blast.
 
