@@ -1,13 +1,10 @@
 import type { AwardedBidEvent } from '@api3/contracts/dist/typechain-types/api3-server-v1/OevAuctionHouse';
 import type { TypedEventLog } from '@api3/contracts/dist/typechain-types/common';
-import { go } from '@api3/promise-utils';
 import { Contract, ethers, formatEther } from 'ethers';
 import { chunk, range, uniq } from 'lodash';
 
-import { getAccountsFromFile, getAccountsToWatch, persistAccountsToWatch } from './accounts-to-watch';
+import { getAccountsToWatch } from './accounts-to-watch';
 import {
-  MIN_LIQUIDATION_PROFIT_USD,
-  contractAddresses,
   externalMulticallSimulator,
   getDapiTransmutationCalls,
   getPercentageValue,
@@ -21,14 +18,11 @@ import {
   sleep,
   wallet,
   oevAuctionHouse,
-  oevAuctioneerConfig,
   oevNetworkProvider,
   multicall3,
   blastNetwork,
-  sanitizeEthersError,
   api3ServerV1,
 } from './commons';
-import { loadEnv } from './env';
 import {
   decodeBidDetails,
   deriveBidId,
@@ -36,23 +30,23 @@ import {
   multicall3Interface,
   priceOracleInterface,
 } from './interfaces';
-import { logger } from './logger';
-import { type EnvConfig, envConfigSchema } from './schema';
 import {
   type AwardDetails,
   type AwardedBidLog,
   type BidDetails,
   type ExpeditedBidExpirationLog,
-  getStorage,
   type LiquidationParameters,
   type OevNetworkLog,
   type PlacedBidLog,
-  type TargetChainData,
-  updateStorage,
-} from './storage';
-
-const BORROW_FETCHER_FREQUENCY_MS = 5000;
-const FIND_OR_ATTEMPT_LIQUIDATION_FREQUENCY_MS = 15_000;
+  Storage,
+} from './types';
+import {
+  BID_CONDITION,
+  contractAddresses,
+  MIN_LIQUIDATION_PROFIT_USD,
+  OEV_BID_VALIDITY,
+  oevAuctioneerConfig,
+} from './constants';
 
 /**
  * The bot's main coordinator function.
@@ -74,126 +68,41 @@ const FIND_OR_ATTEMPT_LIQUIDATION_FREQUENCY_MS = 15_000;
  * - Persist accounts to watch loop: periodically commit the accounts to watch store to disk
  */
 export const runBot = async () => {
-  await initializeTargetChainData();
-  await initializeOevNetworkData();
-  await expediteActiveBids(); // NOTE: We want to expedite the active bids, so that the bot can start fresh.
-
-  void runAccountFetcherLoop(BORROW_FETCHER_FREQUENCY_MS);
-  void runAttemptLiquidationLoop(FIND_OR_ATTEMPT_LIQUIDATION_FREQUENCY_MS);
-  void persistAccountsToWatchLoop();
-};
-
-/**
- * Runs a loop that listens for accounts to watch.
- *
- * @param {number} frequencyMs - The frequency in milliseconds at which to fetch account data.
- * @returns {Promise<void>} - A promise that resolves when the loop is finished.
- * @throws {Error} - If target chain data is not initialized.
- */
-export const runAccountFetcherLoop = async (frequencyMs: number) => {
   while (true) {
-    const { targetChainData } = getStorage();
-    if (!targetChainData) throw new Error('Target chain data not initialized.');
+    const startBlock = 0;
+    const endBlock = await oevNetworkProvider.getBlockNumber();
+    const logs = await getOevNetworkLogs(startBlock, endBlock);
 
+    console.info('Fetched OEV network logs', { count: logs.length, startBlock, endBlock });
+
+    storage.oevNetworkData = {
+      lastFetchedBlock: endBlock,
+      logs,
+    };
+
+    if (storage.targetChainData.lastBlock === targetChainDataInitialBlock) {
+      await expediteActiveBids(); // NOTE: We want to expedite the active bids, so that the bot can start fresh.
+    }
+
+    const { targetChainData } = storage;
     const { borrowers, lastBlock } = await getAccountsToWatch(targetChainData.lastBlock);
-    updateStorage((draft) => {
-      draft.targetChainData!.borrowers = uniq([...targetChainData.borrowers, ...borrowers]);
-      draft.targetChainData!.lastBlock = lastBlock;
-    });
 
-    await sleep(frequencyMs);
+    targetChainData.borrowers = uniq([...targetChainData.borrowers, ...borrowers]);
+    targetChainData.lastBlock = lastBlock;
+    storage.targetChainData = targetChainData;
+
+    try {
+      const { currentlyActiveBid } = storage;
+
+      if (currentlyActiveBid) return attemptLiquidation();
+      await findOevLiquidation();
+    } catch (e) {
+      console.error(`Encountered an error while attempting a liquidation: `, e);
+    }
+
+    await sleep(5000);
   }
 };
-
-/**
- * If the PERSIST_ACCOUNTS_TO_WATCH env is set, this loop will commit accounts to watch storage to disk every 3 minutes.
- *
- * @returns {Promise<void>} Should never resolve.
- */
-export const persistAccountsToWatchLoop = async () => {
-  const { PERSIST_ACCOUNTS_TO_WATCH } = loadEnv<EnvConfig>(envConfigSchema);
-  while (PERSIST_ACCOUNTS_TO_WATCH) {
-    await sleep(3 * 60 * 1000);
-    // eslint-disable-next-line @typescript-eslint/require-await
-    await persistAccountsToWatch(async () => getStorage().targetChainData!);
-    logger.info(`Persisted accounts to watch to file.`);
-  }
-};
-
-/**
- * Initializes the target chain data.
- *
- * This function retrieves the target chain data either from accounts to watch (in production)
- * or from a file (in other environments). It then updates the storage with the obtained data.
- */
-const initializeTargetChainData = async () => {
-  while (true) {
-    const now = Date.now();
-    const goInitialize = await go(
-      async () => {
-        const env = loadEnv<EnvConfig>(envConfigSchema);
-        const targetChainData: TargetChainData =
-          env.NODE_ENV === 'production' ? await getAccountsToWatch() : getAccountsFromFile();
-
-        logger.info('Accounts with borrowed ETH', {
-          count: targetChainData.borrowers.length,
-          elapsedMs: Date.now() - now,
-        });
-        updateStorage((draft) => {
-          draft.targetChainData = targetChainData;
-        });
-      },
-      { totalTimeoutMs: 10 * 60 * 1000 }
-    );
-    if (goInitialize.success) break;
-
-    logger.error('Error initializing OEV bot storage', sanitizeEthersError(goInitialize.error), {
-      elapsedMs: Date.now() - now,
-    });
-    await sleep(2000);
-  }
-};
-
-/**
- * Initializes the OEV network data by fetching and updating the logs.
- * The logs allow the application to track awarded and lost bids.
- * This function runs continuously until the initialization is successful.
- * If an error occurs during initialization, it waits for 2 seconds before retrying.
- */
-const initializeOevNetworkData = async () => {
-  while (true) {
-    const now = Date.now();
-    const goInitialize = await go(
-      async () => {
-        const startBlock = 0;
-        const endBlock = await oevNetworkProvider.getBlockNumber();
-        const logs = await getOevNetworkLogs(startBlock, endBlock);
-
-        logger.info('Fetched OEV network logs', { count: logs.length, startBlock, endBlock });
-        updateStorage((draft) => {
-          draft.oevNetworkData = {
-            lastFetchedBlock: endBlock,
-            logs,
-          };
-        });
-      },
-      { attemptTimeoutMs: 10 * 60 * 1000, retries: 1 }
-    );
-    if (goInitialize.success) break;
-
-    logger.error('Error initializing OEV network state', sanitizeEthersError(goInitialize.error), {
-      elapsedMs: Date.now() - now,
-    });
-    await sleep(2000);
-  }
-};
-
-const BID_CONDITION = {
-  LTE: 0n,
-  GTE: 1n,
-};
-
-const OEV_BID_VALIDITY = 30 * 60; // NOTE: Placing one bid on OEV network costs ~0.00003 ETH.
 
 const oevEventTopics = [
   oevAuctionHouse.filters.AwardedBid().fragment.topicHash, // Same as ethers.id('AwardedBid(address,bytes32,bytes32,bytes,uint256)')
@@ -263,8 +172,7 @@ interface Bid {
 }
 
 const buildOevNetworkState = () => {
-  const { oevNetworkData } = getStorage();
-  if (!oevNetworkData) throw new Error('OEV network data not initialized.');
+  const { oevNetworkData } = storage;
 
   const bids = new Map<string /* Bid ID */, Bid>();
   for (const log of oevNetworkData.logs) {
@@ -318,8 +226,6 @@ const buildOevNetworkState = () => {
   return [...bids.values()];
 };
 
-// TODO: Add logs everywhere
-// TODO: Move common constants to commons file
 /**
  * Expedites bids - functionally equivalent to cancelling a bid by making it expire as quickly as possible.
  * This is useful for clearing the on-chain state as far as this app is concerned, so it can start fresh.
@@ -332,65 +238,36 @@ const expediteActiveBids = async () => {
 
   // NOTE: Currently, the bot only makes a single bid at a time, so in case there is a crash, there should be at most
   // one active bid. The logic will iterate over all active bids just to make sure all are expedited.
-  if (activeBids.length > 1) logger.warn('More than one active bid to expedite', { count: activeBids.length });
+  if (activeBids.length > 1) console.warn('More than one active bid to expedite', { count: activeBids.length });
 
   for (const bid of activeBids) {
     const { log } = bid;
     const { bidId, bidTopic, bidDetails } = log.args;
 
-    logger.info('Expediting bid', { bidId });
-    const goExpedite = await go(async () => {
-      const tx = await oevAuctionHouse
-        .connect(wallet.connect(oevNetworkProvider))
-        .expediteBidExpirationMaximally(bidTopic, ethers.keccak256(bidDetails));
-      await tx.wait(1);
-      return tx;
-    });
-    if (!goExpedite.success) {
-      logger.error('Error expediting bid', sanitizeEthersError(goExpedite.error), { bidId });
-      continue;
-    }
-    logger.info('Expedited bid', { bidId, txHash: goExpedite.data.hash });
-  }
-};
+    console.info('Expediting bid', { bidId });
+    const tx = await oevAuctionHouse
+      .connect(wallet.connect(oevNetworkProvider))
+      .expediteBidExpirationMaximally(bidTopic, ethers.keccak256(bidDetails));
+    await tx.wait(1);
 
-export const runAttemptLiquidationLoop = async (frequencyMs: number) => {
-  while (true) {
-    const now = Date.now();
-    const { currentlyActiveBid } = getStorage();
-    const goRun = await go(
-      async () => {
-        if (currentlyActiveBid) return attemptLiquidation();
-        return findOevLiquidation();
-      },
-      { totalTimeoutMs: 1 * 60 * 1000 }
-    );
-    if (!goRun.success) {
-      logger.error('Error running OEV bot', sanitizeEthersError(goRun.error), { elapsedMs: Date.now() - now });
-    }
-    await sleep(frequencyMs);
+    console.info('Expedited bid', { bidId, txHash: tx.hash });
   }
 };
 
 /**
  * Attempts to liquidate a currently active bid using an awarded bid.
- *
- * @throws {Error} If there is no currently active bid.
- *
- * @returns {Promise<void>}
  */
 const attemptLiquidation = async () => {
-  const { currentlyActiveBid } = getStorage();
+  const { currentlyActiveBid } = storage;
   if (!currentlyActiveBid) throw new Error('No currently active bid.');
   const { bidId, expirationTimestamp, blockNumber, bidDetails } = currentlyActiveBid;
 
   // Check if the bid is still active.
   const timestampNow = Math.trunc(Date.now() / 1000); // NOTE: We need to use off-chain time, because the chain may not produce blocks.
   if (timestampNow >= expirationTimestamp) {
-    logger.info('Bid expired or lost the auction to another bid', { bidId });
-    updateStorage((draft) => {
-      draft.currentlyActiveBid = null;
-    });
+    console.info('Bid expired or lost the auction to another bid', { bidId });
+    storage.currentlyActiveBid = null;
+
     return;
   }
 
@@ -412,14 +289,14 @@ const attemptLiquidation = async () => {
     startBlockNumber += 10_000;
   }
   if (!bidAwardEvent) {
-    logger.info('Bid not yet awarded', { bidId });
+    console.info('Bid not yet awarded', { bidId });
     return;
   }
   const { awardDetails } = bidAwardEvent.args;
-  updateStorage((draft) => {
-    draft.currentlyActiveBid = null;
-  });
-  logger.info('Bid awarded', { bidId, awardDetails });
+
+  storage.currentlyActiveBid = null;
+
+  console.info('Bid awarded', { bidId, awardDetails });
 
   // Perform a staticcall to make sure the liquidation is still possible.
   const { liquidationParameters, bidAmount } = currentlyActiveBid;
@@ -446,7 +323,7 @@ const attemptLiquidation = async () => {
   const [_blockNumber, returndata] = await multicall3.aggregate3Value!.staticCall(calls, { value: bidAmount });
   const [profitEth, profitUsd] = orbitEtherLiquidator.interface.decodeFunctionResult('liquidate', returndata!.at(-1));
   if (profitUsd <= MIN_LIQUIDATION_PROFIT_USD) {
-    logger.info('Liquidation still possible, but profit is now too low', {
+    console.info('Liquidation still possible, but profit is now too low', {
       eth: formatEther(profitEth),
       usd: formatEther(profitUsd),
     });
@@ -460,9 +337,9 @@ const attemptLiquidation = async () => {
   );
   const tx = await walletConnectedMultivall3.aggregate3Value!(calls, { value: bidAmount });
   await tx.wait(1);
-  logger.info('Liquidation transaction', { txHash: tx.hash });
+  console.info('Liquidation transaction', { txHash: tx.hash });
 
-  logger.info(`Waiting before reporting fulfillment`);
+  console.info(`Waiting before reporting fulfillment`);
   await sleep(300_000);
 
   const encodedBidDetails = encodeBidDetails(bidDetails);
@@ -472,7 +349,7 @@ const attemptLiquidation = async () => {
     .connect(wallet.connect(oevNetworkProvider))
     .reportFulfillment(oevAuctioneerConfig.bidTopic, bidDetailsHash, fulfillmentDetails);
   await reportTx.wait(1);
-  logger.info(`Reported fulfillment`, { txHash: reportTx.hash });
+  console.info(`Reported fulfillment`, { txHash: reportTx.hash });
 };
 
 /**
@@ -486,34 +363,34 @@ const attemptLiquidation = async () => {
  */
 const findOevLiquidation = async () => {
   // Print the wallet and the liquidator contract balances.
-  logger.info('Wallet ETH balance', {
+  console.info('Wallet ETH balance', {
     eth: formatEther(await blastProvider.getBalance(wallet.address)),
     oEth: formatEther(await oEtherV2.balanceOf!(wallet.address)),
     ethInOEth: formatEther(await oEtherV2.balanceOfUnderlying!.staticCall(wallet.address)),
   });
-  logger.info('Wallet USDB balance', {
+  console.info('Wallet USDB balance', {
     oUsdb: formatEther(await oUsdb.balanceOf(wallet.address)),
     usdbInOUsdb: formatEther(await oUsdb.balanceOfUnderlying.staticCall(wallet.address)),
   });
-  logger.info('OrbitEtherLiquidator ETH balance', {
+  console.info('OrbitEtherLiquidator ETH balance', {
     eth: formatEther(await blastProvider.getBalance(contractAddresses.orbitEtherLiquidator)),
     oEth: formatEther(await oEtherV2.balanceOf!(contractAddresses.orbitEtherLiquidator)),
     ethInOEth: formatEther(await oEtherV2.balanceOfUnderlying!.staticCall(contractAddresses.orbitEtherLiquidator)),
   });
-  logger.info('OrbitEtherLiquidator USDB balance', {
+  console.info('OrbitEtherLiquidator USDB balance', {
     oUsdb: formatEther(await oUsdb.balanceOf(contractAddresses.orbitEtherLiquidator)),
     usdbInOUsdb: formatEther(await oUsdb.balanceOfUnderlying.staticCall(contractAddresses.orbitEtherLiquidator)),
   });
 
   // Print out the close factor. Currently, the value is set to 0.5, so we can only liquidate 50% of the borrowed asset.
   const closeFactor = await orbitSpaceStation.closeFactorMantissa!();
-  logger.info('Close factor', { closeFactor: formatEther(closeFactor) });
+  console.info('Close factor', { closeFactor: formatEther(closeFactor) });
 
   // Transmutation data.
   const priceOracleAddress = await orbitSpaceStation.oracle!();
   const priceOracle = new Contract(priceOracleAddress, priceOracleInterface, blastProvider); // PriceOracleFactory.connect(priceOracleAddress, blastProvider);
   const currentEthUsdPrice = await priceOracle.getUnderlyingPrice!(contractAddresses.oEtherV2);
-  logger.info('Current ETH/USD price', { price: formatEther(currentEthUsdPrice) });
+  console.info('Current ETH/USD price', { price: formatEther(currentEthUsdPrice) });
   // NOTE: The data feed is configured with 1% deviation threshold and will be automatically updated after 60s delay.
   // This means that the OEV bot will be on timer to get its bid awarded and to capture the liquidation opportunity.
   // Higher percentage gives more time the bot, but the downside is the accuracy of profit calculation, because it
@@ -526,7 +403,7 @@ const findOevLiquidation = async () => {
     transmutationValue
   );
 
-  const { targetChainData } = getStorage();
+  const { targetChainData } = storage;
   if (!targetChainData) throw new Error('Target chain data not initialized.');
   const { borrowers } = targetChainData;
   const getAccountLiquidityCalls = borrowers.map((borrower) => {
@@ -537,7 +414,7 @@ const findOevLiquidation = async () => {
   });
   const accountLiquidity = [];
   for (const batch of chunk(getAccountLiquidityCalls, 500)) {
-    logger.info('Fetching account liquidity for accounts', { count: batch.length });
+    console.info('Fetching account liquidity for accounts', { count: batch.length });
 
     const transmutationCalls = [
       ...dapiTransmutationCalls,
@@ -557,9 +434,9 @@ const findOevLiquidation = async () => {
   const accountsWithShortfall = accounts
     .filter(({ liquidity }) => liquidity[2] > 0)
     .sort((a, b) => (a.liquidity[2] > b.liquidity[2] ? -1 : 1));
-  logger.info('Accounts with shortfall', { count: accountsWithShortfall.length });
+  console.info('Accounts with shortfall', { count: accountsWithShortfall.length });
   if (accountsWithShortfall.length === 0) {
-    logger.info('No accounts with shortfall', {
+    console.info('No accounts with shortfall', {
       accountsCloseToLiquidation: accounts
         .sort((a, b) => (a.liquidity[1] < b.liquidity[1] ? -1 : 1))
         .slice(0, 10)
@@ -601,7 +478,7 @@ const findOevLiquidation = async () => {
 
     const ethBorrowAsset = assetsInAccount.find((assetObj) => assetObj.oToken === contractAddresses.oEtherV2); // Only oEtherV2 uses API3 proxy. The oEther (v1) uses Pyth.
     if (!ethBorrowAsset) {
-      logger.warn('There is no ETH borrow.');
+      console.warn('There is no ETH borrow.');
       continue;
     }
     const maxTokenBalanceAsset = assetsInAccount.reduce((acc, curr) =>
@@ -614,7 +491,7 @@ const findOevLiquidation = async () => {
       orbitEtherLiquidatorBalance,
       getPercentageValue(maxTokenBalanceAsset.tokenBalance, 95) // NOTE: We leave some buffer to be sure there is enough collateral after the interest accrual.
     );
-    logger.debug('Potential liquidation', {
+    console.debug('Potential liquidation', {
       borrower,
       assetsInAccount,
       shortfall: formatEther(liquidity[2]),
@@ -623,39 +500,35 @@ const findOevLiquidation = async () => {
       maxBorrowRepay: formatEther(maxBorrowRepay),
       tokenBalance: formatEther(maxTokenBalanceAsset.tokenBalance),
     });
-    const goCheckLiquidate = await go(async () => {
-      const liquidateBorrowCalls = [
-        ...dapiTransmutationCalls,
-        {
-          target: contractAddresses.orbitEtherLiquidator,
-          data: orbitEtherLiquidator.interface.encodeFunctionData('liquidate', [
-            ethBorrowAsset.oToken,
-            borrower,
-            maxTokenBalanceAsset.oToken,
-            maxBorrowRepay,
-          ]),
-        },
-      ];
-      return simulateTransmutationMulticall(externalMulticallSimulator, liquidateBorrowCalls);
-    });
-    if (goCheckLiquidate.error) {
-      logger.error('Static call error', { borrower, error: goCheckLiquidate.error.toString().slice(0, 80) });
-      break;
-    }
-    const liquidateReturndata = goCheckLiquidate.data.at(-1);
+
+    const liquidateBorrowCalls = [
+      ...dapiTransmutationCalls,
+      {
+        target: contractAddresses.orbitEtherLiquidator,
+        data: orbitEtherLiquidator.interface.encodeFunctionData('liquidate', [
+          ethBorrowAsset.oToken,
+          borrower,
+          maxTokenBalanceAsset.oToken,
+          maxBorrowRepay,
+        ]),
+      },
+    ];
+    const liquidateResult = await simulateTransmutationMulticall(externalMulticallSimulator, liquidateBorrowCalls);
+
+    const liquidateReturndata = liquidateResult.data.at(-1);
     const [profitEth, profitUsd] = orbitEtherLiquidator.interface.decodeFunctionResult(
       'liquidate',
       liquidateReturndata
     );
     if (profitUsd <= MIN_LIQUIDATION_PROFIT_USD) {
-      logger.info('Liquidation possible, but profit is too low', {
+      console.info('Liquidation possible, but profit is too low', {
         borrower,
         eth: formatEther(profitEth),
         usd: formatEther(profitUsd),
       });
       continue;
     }
-    logger.info('Possible liquidation profit', {
+    console.info('Possible liquidation profit', {
       borrower,
       maxBorrowRepay: formatEther(maxBorrowRepay),
       eth: formatEther(profitEth),
@@ -675,7 +548,7 @@ const findOevLiquidation = async () => {
   }
 
   if (!bestLiquidation) {
-    logger.info('No liquidation opportunity found.');
+    console.info('No liquidation opportunity found.');
     return;
   }
 
@@ -693,7 +566,7 @@ const findOevLiquidation = async () => {
   const bidId = deriveBidId(wallet.address, oevAuctioneerConfig.bidTopic, encodedBidDetails);
   const blockNumber = await oevNetworkProvider.getBlockNumber();
   const expirationTimestamp = Math.trunc(Date.now() / 1000) + OEV_BID_VALIDITY;
-  logger.info('Placing bid', {
+  console.info('Placing bid', {
     ...bestLiquidation,
     maxBorrowRepay: formatEther(bestLiquidation.maxBorrowRepay),
     profitEth: formatEther(bestLiquidation.profitEth),
@@ -718,12 +591,26 @@ const findOevLiquidation = async () => {
     liquidationParameters: bestLiquidation,
     blockNumber,
   };
-  updateStorage((draft) => {
-    draft.currentlyActiveBid = currentlyActiveBid;
-  });
-  logger.info('Placed bid', {
+
+  storage.currentlyActiveBid = currentlyActiveBid;
+
+  console.info('Placed bid', {
     txHash: placeBidTx.hash,
     ...currentlyActiveBid,
     bidAmount: formatEther(bidAmount),
   });
+};
+
+export const targetChainDataInitialBlock = 657_831;
+
+export let storage: Storage = {
+  currentlyActiveBid: null,
+  targetChainData: {
+    borrowers: [],
+    lastBlock: targetChainDataInitialBlock,
+  },
+  oevNetworkData: {
+    lastFetchedBlock: 0,
+    logs: [],
+  },
 };

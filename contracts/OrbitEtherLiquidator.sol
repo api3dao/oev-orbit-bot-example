@@ -1,10 +1,16 @@
+/*
+ * To simplify this repository the infrastructure to compile this contract has been omitted.
+ *
+ * This contract can be independently compiled and verified by using solc with optimisation enabled and runs set to 200.
+ */
+
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "./api3-contracts/utils/interfaces/IExternalMulticallSimulator.sol";
-import "./orbit/OEther.sol";
-import "./orbit/SpaceStation.sol";
+import "./api3-contracts/utils/interfaces/IExternalMulticallSimulator.sol"; // Ref: https://github.com/api3dao/contracts
+import "./orbit/OEther.sol"; // Ref: https://github.com/orbit-protocol/contracts/tree/main/contracts
+import "./orbit/SpaceStation.sol"; // Ref: https://github.com/orbit-protocol/contracts/tree/main/contracts
 
 /// @title Orbit liquidator that is able to liquidate OEther and OEtherV2
 /// positions.

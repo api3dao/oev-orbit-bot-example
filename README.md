@@ -124,12 +124,11 @@ component. Also refer to `simulateTransmutationMulticall` for the actual transmu
 
 ## Run the OEV Bot Locally
 
-- Copy `accounts-to-watch.json.ignore.example` to `accounts-to-watch.json.ignore`
-  - `cp src/accounts-to-watch.json.ignore.example src/accounts-to-watch.json.ignore`
 - Copy `.env.example` to `.env` and populate it
   - `cp .env.example .env`
-  - If this app is being run for the first time you'll need to compile, deploy and fund the EtherLiquidator contract:
-    - Compile the contracts: `pnpm contracts:build`
+  - If this app is being run for the first time you'll need to deploy and fund the EtherLiquidator contract:
+    - Note that we have included the contract only in this repository for simplicity. Verification of the contract is
+      beyond the scope of this README.
     - Deploy the contract: Run `pnpm orbit-bot:cli-utils deploy`
     - Populate the `ETHER_LIQUIDATOR_ADDRESS` in .env with the address of the contract deployed above
     - Fund the contract: `pnpm orbit-bot:cli-utils deposit 1` (for 1 ETH)

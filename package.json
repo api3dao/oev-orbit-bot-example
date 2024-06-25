@@ -15,8 +15,7 @@
     "url": "https://github.com/api3dao/oev-bot"
   },
   "scripts": {
-    "build": "pnpm clean && pnpm hardhat compile --force && pnpm run tsc:build",
-    "contracts:build": "pnpm hardhat compile --force",
+    "build": "pnpm clean && pnpm run tsc:build",
     "clean": "rimraf ./artifacts/ ./build ./cache ./coverage/ ./dist",
     "docker:build": "docker buildx build --target oev-bot --tag api3/oev-bot:latest .",
     "docker:run": "docker run -it --init --env-file ./.env --rm api3/oev-bot:latest",
@@ -27,26 +26,17 @@
     "prepare": "husky",
     "prettier:check": "prettier --check \"./**/*.{js,ts,md,json,html}\"",
     "prettier:fix": "prettier --write \"./**/*.{js,ts,md,json,html}\"",
-    "release:push": "ts-node scripts/push-ecr-release.ts",
-    "release:tag": "ts-node scripts/tag-and-release.ts",
     "tsc:build": "tsc -p tsconfig.build.json",
     "tsc": "tsc -p tsconfig.json"
   },
   "dependencies": {
     "@api3/chains": "^7.2.1",
-    "@api3/commons": "^0.9.1",
     "@api3/contracts": "4.1.1",
-    "@api3/promise-utils": "^0.4.0",
     "axios": "^1.7.2",
     "dotenv": "^16.4.5",
-    "immer": "^10.1.1",
-    "lodash": "^4.17.21",
-    "zod": "^3.23.8"
+    "lodash": "^4.17.21"
   },
   "devDependencies": {
-    "@nomicfoundation/hardhat-ethers": "^3.0.6",
-    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
-    "@openzeppelin/contracts": "^5.0.2",
     "@types/lodash": "^4.17.5",
     "@types/node": "^20.14.2",
     "@typescript-eslint/eslint-plugin": "^7.13.0",
@@ -54,7 +44,6 @@
     "eslint": "^8.57.0",
     "eslint-plugin-import": "^2.29.1",
     "ethers": "^6.13.0",
-    "hardhat": "^2.22.5",
     "husky": "^9.0.11",
     "prettier": "^3.3.1",
     "rimraf": "^5.0.7",

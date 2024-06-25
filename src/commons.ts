@@ -8,9 +8,7 @@ import {
   JsonRpcProvider,
   Network,
   ZeroAddress,
-  type ErrorCode,
   VoidSigner,
-  parseEther,
   type AddressLike,
   BaseWallet,
   type BigNumberish,
@@ -23,12 +21,8 @@ import {
   solidityPackedKeccak256,
   SigningKey,
   AbiCoder,
-  type Networkish,
-  type JsonRpcApiProviderOptions,
-  type EthersError,
 } from 'ethers';
 
-import { loadEnv } from './env';
 import {
   externalMulticallSimulatorInterface,
   multicall3Interface,
@@ -37,41 +31,8 @@ import {
   orbitEtherLiquidatorInterface,
   orbitSpaceStationInterface,
 } from './interfaces';
-import { type EnvConfig, envConfigSchema } from './schema';
-
-export const contractAddresses = {
-  // Blast network
-  api3OevEthUsdProxy: '0xCBE95Ba8fF327a1E3e6Bdade4C598277450145B3',
-  api3ServerV1: '0x709944a48cAf83535e43471680fDA4905FB3920a',
-  externalMulticallSimulator: '0xb45fe2838F47DCCEe00F635785EAF0c723F742E5',
-  multicall3: '0xcA11bde05977b3631167028862bE2a173976CA11',
-  oEther: '0xF9B3B455f5d900f62bC1792A6Ca6e1d47B989389',
-  oEtherV2: '0x0872b71EFC37CB8DdE22B2118De3d800427fdba0',
-  oUsdb: '0x9aECEdCD6A82d26F2f86D331B17a1C1676442A87',
-  oWbtc: '0x8c415331761063e5d6b1c8e700f996b13603fc2e',
-  orbitEtherLiquidator: process.env.ETHER_LIQUIDATOR_ADDRESS ?? '0xAb6702A6Fd7f0F2596f70c273376036B44a10709', // TODO replace this with a convenience contract / not permissioned
-  // orbitEtherLiquidator: '0x66E9CA29cD757E3c7C063163deCDB04feb1fC2bC',
-  orbitSpaceStation: '0x1E18C3cb491D908241D0db14b081B51be7B6e652',
-
-  // OEV network
-  oevAuctionHouse: '0x34f13a5c0ad750d212267bcbc230c87aefd35cc5',
-  oevExtendedSelfMulticall: '0x58366D36C610A28F881e622029982e3D273B5761',
-};
-
-export const deploymentBlockNumbers = {
-  orbitSpaceStation: 211_724, // https://blastscan.io/tx/0x4aa7e815dee47cc1ebe455ad5f68ff020616e11edbc45cec5d7871c495b861a3
-  oEtherV2: 657_831, // https://blastscan.io/tx/0x92186344518698abd71f3de5a821c863c0d81ea97f3fed3ce8d324a3d081ae0c
-  oEther: 221_188, // https://blastscan.io/tx/0xf767359de6ef73de18a5ff8302358e38cd37badacf1a8d84114da38d1f461cf2
-  oWbtc: 1_636_042, // https://blastscan.io/tx/0x5541e23ba1f25c3402eb22633fc2cfb5480b9394e7b391e06a32ec7d503acff7
-  oUsdb: 215_021, // https://blastscan.io/tx/0x4f4e4c86e6e8d81793c2088a4fb16d1dee3262597e42864754fcb4bdb04dd04a
-};
-
-export const oevAuctioneerConfig = {
-  bidTopic: '0x76302d70726f642d61756374696f6e6565720000000000000000000000000000',
-  minBidTimeToLiveSeconds: 15n,
-};
-
-const env = loadEnv<EnvConfig>(envConfigSchema);
+import { Call } from './types';
+import { contractAddresses } from './constants';
 
 export const min = (...args: bigint[]) => {
   if (args.length === 0) throw new Error('min() requires at least one argument');
@@ -129,65 +90,17 @@ export async function getDapiTransmutationCalls(
   ];
 }
 
-// eslint-disable-next-line functional/no-classes
-export class ProviderWithFallback extends JsonRpcProvider {
-  private readonly fallbackProvider: JsonRpcProvider | null = null;
-
-  public constructor(
-    url: FetchRequest | string,
-    fallbackProvider: JsonRpcProvider,
-    network?: Networkish,
-    options?: JsonRpcApiProviderOptions
-  ) {
-    super(url, network, options);
-    this.fallbackProvider = fallbackProvider;
-  }
-
-  public async send(method: string, params: any) {
-    // eslint-disable-next-line @typescript-eslint/promise-function-async
-    return new Promise((resolve, reject) =>
-      super
-        .send(method, params)
-        .then((result) => resolve(result))
-        .catch(async (error) => {
-          if (this.fallbackProvider) {
-            return (
-              this.fallbackProvider
-                .send(method, params)
-                // eslint-disable-next-line promise/no-nesting
-                .then((result) => resolve(result))
-                // eslint-disable-next-line promise/no-nesting
-                .catch(reject)
-            );
-          }
-          reject(error as Error);
-        })
-    );
-  }
-}
-
 export const blastNetwork = new Network('blast', hardhatConfig.networks().blast!.chainId);
-export const blastFallbackFetchRequest = new FetchRequest(
-  env.ORBIT_BLAST_REBLOK_RPC_API_KEY ? 'https://rpc.envelop.is/blast' : 'https://blast-rpc.publicnode.com'
-);
+export const blastFallbackFetchRequest = new FetchRequest('https://blast-rpc.publicnode.com');
 blastFallbackFetchRequest.timeout = 10_000; // NOTE: The default FetchRequest timeout is 300_000 ms
 export const blastFallbackProvider = new JsonRpcProvider(blastFallbackFetchRequest, blastNetwork, {
   staticNetwork: blastNetwork,
 });
-const blastFetchRequest = new FetchRequest(
-  env.ORBIT_BLAST_REBLOK_RPC_API_KEY
-    ? `https://rpc.reblok.io/blast?apikey=${env.ORBIT_BLAST_REBLOK_RPC_API_KEY}`
-    : 'https://blast-rpc.publicnode.com'
-);
+const blastFetchRequest = new FetchRequest('https://blast-rpc.publicnode.com');
 blastFetchRequest.timeout = 10_000; // NOTE: The default FetchRequest timeout is 300_000 ms
-export const blastProvider = new ProviderWithFallback(blastFetchRequest, blastFallbackProvider, blastNetwork, {
+export const blastProvider = new JsonRpcProvider(blastFetchRequest, blastNetwork, {
   staticNetwork: blastNetwork,
 });
-
-export interface Call {
-  target: AddressLike;
-  data: BytesLike;
-}
 
 export async function simulateTransmutationMulticall(externalMulticallSimulator: Contract, transmutationCalls: Call[]) {
   const transmutationCalldata = transmutationCalls.map((call) =>
@@ -202,7 +115,7 @@ export async function simulateTransmutationMulticall(externalMulticallSimulator:
   return multicallReturndata.map((returndata: string) => AbiCoder.defaultAbiCoder().decode(['bytes'], returndata)[0]);
 }
 
-export const wallet = Wallet.fromPhrase(env.MNEMONIC);
+export const wallet = Wallet.fromPhrase(process.env.MNEMONIC!);
 
 export const orbitSpaceStation = new Contract(
   contractAddresses.orbitSpaceStation,
@@ -227,15 +140,6 @@ export const orbitEtherLiquidator = new Contract(
 );
 export const api3ServerV1 = Api3ServerV1Factory.connect(contractAddresses.api3ServerV1, blastProvider);
 
-// https://github.com/GoogleChromeLabs/jsbi/issues/30#issuecomment-953187833
-(BigInt.prototype as any).toJSON = function () {
-  return this.toString();
-};
-
-export const MIN_ETH_BORROW = parseEther('0.01');
-
-export const MIN_LIQUIDATION_PROFIT_USD = parseEther('0.01'); // NOTE: USD has 18 decimals, same as ETH.
-
 export const getPercentageValue = (value: bigint, percent: number) => {
   const onePercent = 10 ** 10;
   return (value * BigInt(Math.trunc(percent * onePercent))) / BigInt(onePercent) / 100n;
@@ -251,32 +155,3 @@ export const oevNetworkProvider = new JsonRpcProvider(oevNetwork.url, new Networ
 });
 
 export const oevAuctionHouse = OevAuctionHouseFactory.connect(contractAddresses.oevAuctionHouse, oevNetworkProvider);
-
-// eslint-disable-next-line functional/no-classes
-class SanitizedEthersError extends Error {
-  public code: ErrorCode;
-
-  public constructor(code: ErrorCode, message: string) {
-    super(message);
-    this.code = code;
-  }
-}
-
-// Ethers error messages are sometimes serialized into huge strings containing the raw transaction bytes that is
-// unnecessary. The serialized string is so big, that Grafana log forwarder needs to split the message into multiple
-// parts (messing up with our log format). As a workaround, we pick the most useful properties from the error message.
-export const sanitizeEthersError = (error: Error) => {
-  const ethersError = error as EthersError;
-
-  // We only care about ethers errors and they all should have a code.
-  if (!ethersError.code) return error;
-
-  // We don't care about the stack trace, nor error name - just the code and the message. According to the ethers
-  // sources, the short message should always be defined.
-  const sanitizedError = new SanitizedEthersError(ethersError.code, ethersError.shortMessage);
-  // NOTE: We don't need the stack trace, because the errors are usually easy to find by the developer message and the
-  // stack can be traced manually. This reduces the risk of the stack trace being too large and "exploding" the log
-  // size.
-  delete sanitizedError.stack;
-  return sanitizedError;
-};

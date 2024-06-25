@@ -1,5 +1,6 @@
+import type { AddressLike, BytesLike } from 'ethers';
+
 import type { TypedEventLog } from '@api3/contracts/dist/typechain-types/common';
-import { type Draft, produce } from 'immer';
 
 import type { oevAuctionHouse } from './commons';
 
@@ -35,7 +36,7 @@ export interface TargetChainData {
   lastBlock: number;
 }
 
-interface CurrentlyActiveBid {
+export interface CurrentlyActiveBid {
   bidId: string;
   bidAmount: bigint;
   bidDetails: BidDetails;
@@ -63,25 +64,18 @@ export interface ExpeditedBidExpirationLog {
 
 export type OevNetworkLog = AwardedBidLog | ExpeditedBidExpirationLog | PlacedBidLog;
 
-interface OevNetworkData {
+export interface OevNetworkData {
   lastFetchedBlock: number;
   logs: OevNetworkLog[];
 }
 
-interface Storage {
+export interface Storage {
   currentlyActiveBid: CurrentlyActiveBid | null;
-  targetChainData: TargetChainData | null;
-  oevNetworkData: OevNetworkData | null;
+  targetChainData: TargetChainData;
+  oevNetworkData: OevNetworkData;
 }
 
-let storage: Storage = {
-  currentlyActiveBid: null,
-  targetChainData: null,
-  oevNetworkData: null,
-};
-
-export const getStorage = () => storage;
-
-export const updateStorage = (updater: (draft: Draft<Storage>) => void) => {
-  storage = produce(storage, updater);
-};
+export interface Call {
+  target: AddressLike;
+  data: BytesLike;
+}
