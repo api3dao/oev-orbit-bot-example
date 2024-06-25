@@ -1,3 +1,5 @@
+import 'dotenv/config';
+
 import { hardhatConfig } from '@api3/chains';
 import {
   Api3ServerV1__factory as Api3ServerV1Factory,
@@ -33,6 +35,7 @@ import {
 } from './interfaces';
 import { Call } from './types';
 import { contractAddresses } from './constants';
+import { join } from 'node:path';
 
 export const min = (...args: bigint[]) => {
   if (args.length === 0) throw new Error('min() requires at least one argument');
