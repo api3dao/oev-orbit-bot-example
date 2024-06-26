@@ -19,15 +19,24 @@ import { orbitSpaceStationInterface, priceOracleInterface } from './interfaces';
 export const getAccountsToWatch = async (startBlockNumber?: number | null) => {
   console.info('Preparing accounts to watch');
 
+  // Iterate through log events from Orbit, finding all Borrow events, grab the borrower and return them
   const { borrowers, endBlockNumber } = await getBorrowersFromLogs(startBlockNumber);
   console.info(`Unique borrowers: ${borrowers.length}`);
 
   console.info('Fetching accounts with borrowed ETH...');
   const accountsToWatch: string[] = [];
-  for (const accountBatch of chunk(borrowers, 500)) {
+
+  // We use multicalls to reduce the number of RPC calls, but these calls are limited in size, so we batch them into
+  // batches of 500 borrowers
+  const chunkedBorrowers = chunk(borrowers, 500);
+  for (const accountBatch of chunkedBorrowers) {
+    // Get the account details of every account in the batch
+    // Account details are the tokens borrowed and the amount of tokens borrowed belonging to a borrower
     const accountDetails = await getAccountDetails(accountBatch);
 
-    const accountsToWatchBatch = await checkHealthOfAccounts(accountDetails, accountBatch);
+    // For every borrower we check each of their accounts (from getAccountDetails) and calculate the potential
+    // liquidation profitability. Accounts that are potentially profitable to liquidate are added to accountsToWatch
+    const accountsToWatchBatch = await checkLiquidationPotentialOfAccounts(accountDetails, accountBatch);
     accountsToWatch.concat(accountsToWatchBatch);
   }
   console.info(`Fetched details of ${accountsToWatch.length} accounts with borrowed ETH`);
@@ -36,7 +45,7 @@ export const getAccountsToWatch = async (startBlockNumber?: number | null) => {
 };
 
 /**
- * Iterate through log events, searching specifically for the "Borrow" event, to find a set of accounts to check for
+ * Iterate through Orbit log events, searching specifically for the "Borrow" event, to find a set of accounts to check for
  * liquidation potential.
  */
 export const getBorrowersFromLogs = async (startBlockNumber?: number | null) => {
@@ -96,33 +105,45 @@ export const getAccountDetails = async (borrowerBatch: string[]) => {
  * - Get the price of ETH vs USD
  * - Determine borrowed balance and liquidity
  */
-export const checkHealthOfAccounts = async (accountDetails: [string[], bigint[]][], accounts: string[]) => {
-  const accountsToWatch = [];
+export const checkLiquidationPotentialOfAccounts = async (
+  accountDetails: [string[], bigint[]][],
+  borrowers: string[]
+) => {
+  const accountsToWatch: string[] = [];
 
-  const getAccountLiquidityCalls = accounts.map((borrower) => ({
+  // Encode the getAccountLiquidity call for use in a multicall for every borrower
+  const getAccountLiquidityCalls = borrowers.map((borrower) => ({
     target: contractAddresses.orbitSpaceStation,
     callData: orbitSpaceStationInterface.encodeFunctionData('getAccountLiquidity', [borrower]),
   }));
-  console.info('Fetching account liquidity for accounts', { count: accounts.length });
+
+  // Actually do the liquidity multicall
+  console.info('Fetching account liquidity for accounts', { count: borrowers.length });
   const [_blockNumber2, accountLiquidityReturndata] = await multicall3.aggregate!.staticCall(getAccountLiquidityCalls);
   const accountLiquidity = accountLiquidityReturndata.map((data: string) =>
     orbitSpaceStationInterface.decodeFunctionResult('getAccountLiquidity', data)
   );
 
+  // Initialise a price oracle instance representing Orbit's price oracle
+  // We will apply a modifier to this price to determine profitability in the event of a liquidation at the modified price
   const priceOracleAddress = await orbitSpaceStation.oracle!();
-  const priceOracle = new Contract(priceOracleAddress, priceOracleInterface, blastProvider); // PriceOracleFactory.connect(priceOracleAddress, blastProvider);
+  const priceOracle = new Contract(priceOracleAddress, priceOracleInterface, blastProvider);
   const currentEthUsdPrice = await priceOracle.getUnderlyingPrice!(contractAddresses.oEtherV2);
 
+  // Now we determine the profitability per borrower
   for (let i = 0; i < accountDetails.length; i++) {
+    // Every borrower can have multiple borrowed balances
     const [oTokens, borrowBalances] = accountDetails[i]!; // NOTE: The borrow balances are in ETH.
-    const borrower = accounts[i]!;
+    const borrower = borrowers[i]!;
     let ethBorrowBalance = 0n;
 
+    // Search for the biggest borrowed balance
     for (let i = 0; i < oTokens.length; i++) {
       const oToken = oTokens[i];
 
       if (oToken !== contractAddresses.oEtherV2) continue;
 
+      // TODO this is a bug from upstream I suspect; this should be Math.max(ethBorrowBalance, borrowBalances[i]!)
       ethBorrowBalance = borrowBalances[i]!;
     }
     if (!ethBorrowBalance) continue;

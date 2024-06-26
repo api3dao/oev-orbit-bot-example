@@ -358,8 +358,6 @@ const attemptLiquidation = async () => {
  * and determines the most profitable potential liquidation.
  *
  * Once a potential opportunity has been found, the app places a bid on the OEV network for that feed.
- *
- * @returns {void}
  */
 const findOevLiquidation = async () => {
   // Print the wallet and the liquidator contract balances.
