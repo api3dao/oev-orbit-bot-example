@@ -11,7 +11,7 @@ import {
   min,
   oEtherV2,
   oUsdb,
-  orbitEtherLiquidator,
+  OrbitLiquidator,
   orbitSpaceStation,
   blastProvider,
   simulateTransmutationMulticall,
@@ -308,10 +308,10 @@ const attemptLiquidation = async () => {
       callData: awardDetails,
     },
     {
-      target: contractAddresses.orbitEtherLiquidator,
+      target: contractAddresses.OrbitLiquidator,
       allowFailure: false,
       value: 0,
-      callData: orbitEtherLiquidator.interface.encodeFunctionData('liquidate', [
+      callData: OrbitLiquidator.interface.encodeFunctionData('liquidate', [
         liquidationParameters.borrowTokenAddress,
         liquidationParameters.borrower,
         liquidationParameters.collateralTokenAddress,
@@ -321,7 +321,7 @@ const attemptLiquidation = async () => {
   ];
 
   const [_blockNumber, returndata] = await multicall3.aggregate3Value!.staticCall(calls, { value: bidAmount });
-  const [profitEth, profitUsd] = orbitEtherLiquidator.interface.decodeFunctionResult('liquidate', returndata!.at(-1));
+  const [profitEth, profitUsd] = OrbitLiquidator.interface.decodeFunctionResult('liquidate', returndata!.at(-1));
   if (profitUsd <= MIN_LIQUIDATION_PROFIT_USD) {
     console.info('Liquidation still possible, but profit is now too low', {
       eth: formatEther(profitEth),
@@ -370,14 +370,14 @@ const findOevLiquidation = async () => {
     oUsdb: formatEther(await oUsdb.balanceOf(wallet.address)),
     usdbInOUsdb: formatEther(await oUsdb.balanceOfUnderlying.staticCall(wallet.address)),
   });
-  console.info('OrbitEtherLiquidator ETH balance', {
-    eth: formatEther(await blastProvider.getBalance(contractAddresses.orbitEtherLiquidator)),
-    oEth: formatEther(await oEtherV2.balanceOf!(contractAddresses.orbitEtherLiquidator)),
-    ethInOEth: formatEther(await oEtherV2.balanceOfUnderlying!.staticCall(contractAddresses.orbitEtherLiquidator)),
+  console.info('OrbitLiquidator ETH balance', {
+    eth: formatEther(await blastProvider.getBalance(contractAddresses.OrbitLiquidator)),
+    oEth: formatEther(await oEtherV2.balanceOf!(contractAddresses.OrbitLiquidator)),
+    ethInOEth: formatEther(await oEtherV2.balanceOfUnderlying!.staticCall(contractAddresses.OrbitLiquidator)),
   });
-  console.info('OrbitEtherLiquidator USDB balance', {
-    oUsdb: formatEther(await oUsdb.balanceOf(contractAddresses.orbitEtherLiquidator)),
-    usdbInOUsdb: formatEther(await oUsdb.balanceOfUnderlying.staticCall(contractAddresses.orbitEtherLiquidator)),
+  console.info('OrbitLiquidator USDB balance', {
+    oUsdb: formatEther(await oUsdb.balanceOf(contractAddresses.OrbitLiquidator)),
+    usdbInOUsdb: formatEther(await oUsdb.balanceOfUnderlying.staticCall(contractAddresses.OrbitLiquidator)),
   });
 
   // Print out the close factor. Currently, the value is set to 0.5, so we can only liquidate 50% of the borrowed asset.
@@ -455,16 +455,13 @@ const findOevLiquidation = async () => {
     const transmutationCalls = [
       ...dapiTransmutationCalls,
       {
-        target: contractAddresses.orbitEtherLiquidator,
-        data: orbitEtherLiquidator.interface.encodeFunctionData('getAccountDetails', [
-          borrower,
-          contractAddresses.oEtherV2,
-        ]),
+        target: contractAddresses.OrbitLiquidator,
+        data: OrbitLiquidator.interface.encodeFunctionData('getAccountDetails', [borrower, contractAddresses.oEtherV2]),
       },
     ];
     const returndata = await simulateTransmutationMulticall(externalMulticallSimulator, transmutationCalls);
     const [getAccountDetailsEncoded] = returndata.slice(-1);
-    const [oTokenAddresses, borrowBalanceEth, tokenBalanceEth] = orbitEtherLiquidator.interface.decodeFunctionResult(
+    const [oTokenAddresses, borrowBalanceEth, tokenBalanceEth] = OrbitLiquidator.interface.decodeFunctionResult(
       'getAccountDetails',
       getAccountDetailsEncoded
     );
@@ -483,10 +480,10 @@ const findOevLiquidation = async () => {
       acc.tokenBalance > curr.tokenBalance ? acc : curr
     );
 
-    const orbitEtherLiquidatorBalance = await blastProvider.getBalance(contractAddresses.orbitEtherLiquidator);
+    const OrbitLiquidatorBalance = await blastProvider.getBalance(contractAddresses.OrbitLiquidator);
     const maxBorrowRepay = min(
       (ethBorrowAsset.borrowBalance * (closeFactor as bigint)) / 10n ** 18n,
-      orbitEtherLiquidatorBalance,
+      OrbitLiquidatorBalance,
       getPercentageValue(maxTokenBalanceAsset.tokenBalance, 95) // NOTE: We leave some buffer to be sure there is enough collateral after the interest accrual.
     );
     console.debug('Potential liquidation', {
@@ -502,8 +499,8 @@ const findOevLiquidation = async () => {
     const liquidateBorrowCalls = [
       ...dapiTransmutationCalls,
       {
-        target: contractAddresses.orbitEtherLiquidator,
-        data: orbitEtherLiquidator.interface.encodeFunctionData('liquidate', [
+        target: contractAddresses.OrbitLiquidator,
+        data: OrbitLiquidator.interface.encodeFunctionData('liquidate', [
           ethBorrowAsset.oToken,
           borrower,
           maxTokenBalanceAsset.oToken,
@@ -514,10 +511,7 @@ const findOevLiquidation = async () => {
     const liquidateResult = await simulateTransmutationMulticall(externalMulticallSimulator, liquidateBorrowCalls);
 
     const liquidateReturndata = liquidateResult.data.at(-1);
-    const [profitEth, profitUsd] = orbitEtherLiquidator.interface.decodeFunctionResult(
-      'liquidate',
-      liquidateReturndata
-    );
+    const [profitEth, profitUsd] = OrbitLiquidator.interface.decodeFunctionResult('liquidate', liquidateReturndata);
     if (profitUsd <= MIN_LIQUIDATION_PROFIT_USD) {
       console.info('Liquidation possible, but profit is too low', {
         borrower,

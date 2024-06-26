@@ -24,7 +24,7 @@ export const multicall3Interface = new Interface([
   'function aggregate((address target, bytes callData)[] calldata calls) public payable returns (uint256 blockNumber, bytes[] memory returnData)',
 ]);
 
-export const orbitEtherLiquidatorInterface = new Interface([
+export const OrbitLiquidatorInterface = new Interface([
   'constructor (address spaceStation)',
   'function liquidate(address target,address borrower,address collateral,uint256 value) external returns (uint256 profitEth, uint256 profitUsd)',
   'function getAccountDetails(address account, address oEther) external view returns (address[] memory oTokens,uint256[] memory borrowBalanceEth,uint256[] memory tokenBalanceEth)',

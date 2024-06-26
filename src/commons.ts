@@ -30,7 +30,7 @@ import {
   multicall3Interface,
   OErc20DelegatorInterface,
   OEtherV2Interface,
-  orbitEtherLiquidatorInterface,
+  OrbitLiquidatorInterface,
   orbitSpaceStationInterface,
 } from './interfaces';
 import { Call } from './types';
@@ -136,11 +136,7 @@ export const externalMulticallSimulator = new Contract(
   externalMulticallSimulatorInterface,
   blastProvider
 );
-export const orbitEtherLiquidator = new Contract(
-  contractAddresses.orbitEtherLiquidator,
-  orbitEtherLiquidatorInterface,
-  blastProvider
-);
+export const OrbitLiquidator = new Contract(contractAddresses.OrbitLiquidator, OrbitLiquidatorInterface, blastProvider);
 export const api3ServerV1 = Api3ServerV1Factory.connect(contractAddresses.api3ServerV1, blastProvider);
 
 export const getPercentageValue = (value: bigint, percent: number) => {

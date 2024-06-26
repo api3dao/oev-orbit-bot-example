@@ -12,8 +12,8 @@ export const contractAddresses = {
   oEtherV2: '0x0872b71EFC37CB8DdE22B2118De3d800427fdba0',
   oUsdb: '0x9aECEdCD6A82d26F2f86D331B17a1C1676442A87',
   oWbtc: '0x8c415331761063e5d6b1c8e700f996b13603fc2e',
-  orbitEtherLiquidator: process.env.ETHER_LIQUIDATOR_ADDRESS ?? '0x',
-  // orbitEtherLiquidator: '0x66E9CA29cD757E3c7C063163deCDB04feb1fC2bC',
+  OrbitLiquidator: process.env.ETHER_LIQUIDATOR_ADDRESS ?? '0x',
+  // OrbitLiquidator: '0x66E9CA29cD757E3c7C063163deCDB04feb1fC2bC',
   orbitSpaceStation: '0x1E18C3cb491D908241D0db14b081B51be7B6e652',
 
   // OEV network

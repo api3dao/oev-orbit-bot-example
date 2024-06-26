@@ -4,7 +4,7 @@ import { chunk, uniq } from 'lodash';
 import {
   multicall3,
   oEtherV2,
-  orbitEtherLiquidator,
+  OrbitLiquidator,
   blastProvider,
   sleep,
   orbitSpaceStation,
@@ -79,16 +79,13 @@ export const getBorrowersFromLogs = async (startBlockNumber?: number | null) => 
 export const getAccountDetails = async (borrowerBatch: string[]) => {
   console.info('Fetching accounts with borrowed ETH', { count: borrowerBatch.length });
   const getAccountDetailsCalls = borrowerBatch.map((borrower) => ({
-    target: contractAddresses.orbitEtherLiquidator,
-    callData: orbitEtherLiquidator.interface.encodeFunctionData('getAccountDetails', [
-      borrower,
-      contractAddresses.oEtherV2,
-    ]),
+    target: contractAddresses.OrbitLiquidator,
+    callData: OrbitLiquidator.interface.encodeFunctionData('getAccountDetails', [borrower, contractAddresses.oEtherV2]),
   }));
   const [_blockNumber1, getAccountDetailsEncoded] = await multicall3.aggregate!.staticCall(getAccountDetailsCalls);
 
   return getAccountDetailsEncoded.map((data: string) =>
-    orbitEtherLiquidator.interface.decodeFunctionResult('getAccountDetails', data)
+    OrbitLiquidator.interface.decodeFunctionResult('getAccountDetails', data)
   );
 };
 

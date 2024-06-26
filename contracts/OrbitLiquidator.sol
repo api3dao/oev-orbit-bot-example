@@ -33,14 +33,14 @@ contract OrbitLiquidator is Ownable {
   function getAccountDetails(
     address account
   )
-    external
-    view
-    returns (
-      address[] memory oTokens,
-      uint256[] memory borrowBalanceUsd,
-      uint256[] memory tokenBalanceUsd,
-      uint256[2] memory liquidityData
-    )
+  external
+  view
+  returns (
+    address[] memory oTokens,
+    uint256[] memory borrowBalanceUsd,
+    uint256[] memory tokenBalanceUsd,
+    uint256[2] memory liquidityData
+  )
   {
     oTokens = ISpaceStation(SPACE_STATION).getAssetsIn(account);
     borrowBalanceUsd = new uint256[](oTokens.length);
