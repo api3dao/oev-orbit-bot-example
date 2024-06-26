@@ -43,6 +43,8 @@ export const MAX_LOG_RANGE_BLOCKS = 10_000; // The maximum number of blocks to f
 export const MIN_RPC_DELAY_MS = 100; // The minimum delay between RPC calls in milliseconds.
 export const MAX_BORROWER_DETAILS_MULTICALL = 300; // The maximum number of borrowers to fetch details for in a single multicall.
 export const MIN_USD_BORROW = parseEther('20'); // The minimum amount of USD that a borrower must have borrowed to be considered for liquidation.
+
+// TODO from upstream, determine where this is used
 export const MIN_LIQUIDATION_PROFIT_USD = parseEther('0.01'); // NOTE: USD has 18 decimals, same as ETH.
 export const MAX_COLLATERAL_REPAY_PERCENTAGE = 95; // We leave some buffer to be sure there is enough collateral after the interest accrual.
 
@@ -113,11 +115,7 @@ export async function getDapiTransmutationCalls(
 }
 
 export const blastNetwork = new Network('blast', hardhatConfig.networks().blast!.chainId);
-export const blastFallbackFetchRequest = new FetchRequest('https://blast-rpc.publicnode.com');
-blastFallbackFetchRequest.timeout = 10_000; // NOTE: The default FetchRequest timeout is 300_000 ms
-export const blastFallbackProvider = new JsonRpcProvider(blastFallbackFetchRequest, blastNetwork, {
-  staticNetwork: blastNetwork,
-});
+
 const blastFetchRequest = new FetchRequest('https://blast-rpc.publicnode.com');
 blastFetchRequest.timeout = 10_000; // NOTE: The default FetchRequest timeout is 300_000 ms
 export const blastProvider = new JsonRpcProvider(blastFetchRequest, blastNetwork, {
@@ -139,6 +137,7 @@ export async function simulateTransmutationMulticall(externalMulticallSimulator:
 
 export const wallet = Wallet.fromPhrase(process.env.MNEMONIC!);
 
+// TODO this should not longer be necessary I suspect; find all references and swap out with Liquidator contract
 export const orbitSpaceStation = new Contract(
   contractAddresses.orbitSpaceStation,
   orbitSpaceStationInterface,

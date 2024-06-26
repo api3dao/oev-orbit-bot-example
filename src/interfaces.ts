@@ -1,5 +1,7 @@
 import { AbiCoder, Interface, keccak256, solidityPacked } from 'ethers';
 import { BidDetails } from './types';
+import fs from 'node:fs';
+import { join } from 'node:path';
 
 export const priceOracleInterface = new Interface([
   'function getUnderlyingPrice(address oToken) external view returns (uint)',
@@ -15,6 +17,9 @@ export const OEtherV2Interface = new Interface([
   'function balanceOf(address owner) external view override returns (uint256)',
   'function balanceOfUnderlying(address owner) external override returns (uint)',
   'event Borrow(address borrower, uint borrowAmount, uint accountBorrows, uint totalBorrows)',
+  'event LiquidateBorrow(address liquidator,address borrower,uint256 actualRepayAmount,address oTokenCollateral,uint256 seizeTokens)',
+  'event RepayBorrow(address payer,address borrower,uint256 actualRepayAmount,uint256 accountBorrowsNew,uint256 totalBorrowsNew)',
+  'event Redeem(address redeemer, uint256 redeemAmount, uint256 redeemTokens)',
 ]);
 
 export const OErc20DelegatorInterface = OEtherV2Interface;
@@ -24,11 +29,17 @@ export const multicall3Interface = new Interface([
   'function aggregate((address target, bytes callData)[] calldata calls) public payable returns (uint256 blockNumber, bytes[] memory returnData)',
 ]);
 
-export const OrbitLiquidatorInterface = new Interface([
-  'constructor (address spaceStation)',
-  'function liquidate(address target,address borrower,address collateral,uint256 value) external returns (uint256 profitEth, uint256 profitUsd)',
-  'function getAccountDetails(address account, address oEther) external view returns (address[] memory oTokens,uint256[] memory borrowBalanceEth,uint256[] memory tokenBalanceEth)',
-]);
+export const getOrbitLiquidatorArtifact = () =>
+  JSON.parse(
+    fs
+      .readFileSync(join(__dirname, '..', 'artifacts', 'contracts', 'OrbitLiquidator.sol', 'OrbitLiquidator.json'))
+      .toString()
+  ) as {
+    bytecode: string;
+    abi: any[];
+  };
+
+export const OrbitLiquidatorInterface = Interface.from(getOrbitLiquidatorArtifact().abi);
 
 export const externalMulticallSimulatorInterface = new Interface([
   'function functionCall(address target,bytes memory data) external override returns (bytes memory)',

@@ -91,7 +91,7 @@ export const getAccountDetails = async (borrowerBatch: string[]) => {
   console.info('Fetching accounts with borrowed ETH', { count: borrowerBatch.length });
   const getAccountDetailsCalls = borrowerBatch.map((borrower) => ({
     target: contractAddresses.OrbitLiquidator,
-    callData: OrbitLiquidator.interface.encodeFunctionData('getAccountDetails', [borrower, contractAddresses.oEtherV2]),
+    callData: OrbitLiquidator.interface.encodeFunctionData('getAccountDetails', [borrower]),
   }));
   const [_blockNumber1, getAccountDetailsEncoded] = await multicall3.aggregate!.staticCall(getAccountDetailsCalls);
 
@@ -114,7 +114,7 @@ export const getAccountDetails = async (borrowerBatch: string[]) => {
  * - Determine borrowed balance and liquidity
  */
 export const checkLiquidationPotentialOfAccounts = async (
-  accountDetails: [string[], bigint[], bigint[], [bigint, bigint]][],
+  accountDetails: [string[], bigint[], bigint[], [bigint, bigint]][], // [oTokens[], borrowBalanceUsd[], tokenBalanceUsd[], [liquidityValue, shortfall]]
   borrowers: string[]
 ) => {
   const accountsToWatch: string[] = [];
@@ -171,6 +171,7 @@ export const checkLiquidationPotentialOfAccounts = async (
   return accountsToWatch;
 };
 
+// TODO new function from upstream, needs documentation
 export const getOrbitLogs = async (fromBlock: number, toBlock: number) => {
   const logs = await blastProvider.getLogs({
     address: Object.values(oTokenAddresses),

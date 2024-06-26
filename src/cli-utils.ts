@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { Contract, ContractFactory, formatEther, Interface, parseEther } from 'ethers';
 
 import { blastProvider, oEtherV2, oUsdb, wallet } from './commons';
-import { OrbitLiquidatorInterface } from './interfaces';
+import { getOrbitLiquidatorArtifact, OrbitLiquidatorInterface } from './interfaces';
 import { contractAddresses } from './constants';
 
 const OrbitLiquidatorAddress = contractAddresses.OrbitLiquidator;
@@ -30,17 +30,11 @@ const main = async () => {
     usdbInOUsdb: formatEther(await oUsdb.balanceOfUnderlying.staticCall(contractAddresses.OrbitLiquidator)),
   });
 
-  const { bytecode, abi } = JSON.parse(
-    fs.readFileSync(join(__dirname, '..', 'OrbitLiquidator.sol.json')).toString()
-  ) as {
-    bytecode: string;
-    abi: any[];
-  };
+  const { bytecode } = getOrbitLiquidatorArtifact();
 
-  const OrbitLiquidator = new Contract(OrbitLiquidatorAddress, Interface.from(abi), wallet.connect(blastProvider));
+  const OrbitLiquidator = new Contract(OrbitLiquidatorAddress, OrbitLiquidatorInterface, wallet.connect(blastProvider));
 
   // Expected usage is to call this script with the type of command to perform.
-
   const command = process.argv[2];
   switch (command) {
     case 'deploy': {
@@ -50,7 +44,7 @@ const main = async () => {
         OrbitLiquidatorInterface,
         bytecode,
         wallet.connect(blastProvider)
-      ).deploy(contractAddresses.orbitSpaceStation);
+      ).deploy();
 
       await deployTx.deploymentTransaction()?.wait(1);
       const address = await deployTx.getAddress();
