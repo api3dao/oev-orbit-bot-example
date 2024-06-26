@@ -23,6 +23,7 @@ import {
   solidityPackedKeccak256,
   SigningKey,
   AbiCoder,
+  parseEther,
 } from 'ethers';
 
 import {
@@ -35,7 +36,25 @@ import {
 } from './interfaces';
 import { Call } from './types';
 import { contractAddresses } from './constants';
-import { join } from 'node:path';
+
+export const MIN_COLLATERAL_BUFFER_PERCENT = 3; // The borrower is considered safe if they have at least X percent excess collateral relative to their borrowed amount.
+export const BORROWER_LOGS_LOOKBACK_BLOCKS = 300; // The number of blocks to look back for the borrower logs.
+export const MAX_LOG_RANGE_BLOCKS = 10_000; // The maximum number of blocks to fetch in a single call.
+export const MIN_RPC_DELAY_MS = 100; // The minimum delay between RPC calls in milliseconds.
+export const MAX_BORROWER_DETAILS_MULTICALL = 300; // The maximum number of borrowers to fetch details for in a single multicall.
+export const MIN_USD_BORROW = parseEther('20'); // The minimum amount of USD that a borrower must have borrowed to be considered for liquidation.
+export const MIN_LIQUIDATION_PROFIT_USD = parseEther('0.01'); // NOTE: USD has 18 decimals, same as ETH.
+export const MAX_COLLATERAL_REPAY_PERCENTAGE = 95; // We leave some buffer to be sure there is enough collateral after the interest accrual.
+
+export const oTokenAddresses = {
+  oEtherV2: '0x0872b71EFC37CB8DdE22B2118De3d800427fdba0', // NOTE: oEther v1 uses Pyth and is deprecated and ignored by the bot.
+  oUsdb: '0x9aECEdCD6A82d26F2f86D331B17a1C1676442A87',
+  oWbtc: '0x8c415331761063e5d6b1c8e700f996b13603fc2e',
+  // LRT strategies
+  oEth: '0x795dCD51EaC6eb3123b7a4a1f906992EAA54Cb0e',
+  oezETH: '0x4991b902F397dC16b0BBd21b0057a20b4B357AE2',
+  ofwWETH: '0xB51b76C73fB24f472E0dd63Bb8195bD2170Bc65d',
+};
 
 export const min = (...args: bigint[]) => {
   if (args.length === 0) throw new Error('min() requires at least one argument');

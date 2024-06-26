@@ -1,4 +1,4 @@
-import { Contract, type EventLog } from 'ethers';
+import { Contract, type EventLog, formatEther } from 'ethers';
 import { chunk, uniq } from 'lodash';
 
 import {
@@ -9,9 +9,16 @@ import {
   sleep,
   orbitSpaceStation,
   getPercentageValue,
+  oTokenAddresses,
+  BORROWER_LOGS_LOOKBACK_BLOCKS,
+  MAX_LOG_RANGE_BLOCKS,
+  MIN_RPC_DELAY_MS,
+  MIN_COLLATERAL_BUFFER_PERCENT,
+  MIN_USD_BORROW,
+  MAX_BORROWER_DETAILS_MULTICALL,
 } from './commons';
 import { contractAddresses, deploymentBlockNumbers, MIN_ETH_BORROW, SAFE_COLLATERAL_BUFFER_PERCENT } from './constants';
-import { orbitSpaceStationInterface, priceOracleInterface } from './interfaces';
+import { OEtherV2Interface, orbitSpaceStationInterface, priceOracleInterface } from './interfaces';
 
 /**
  * Iterate through log events on Orbit to determine accounts worth watching.
@@ -28,7 +35,7 @@ export const getAccountsToWatch = async (startBlockNumber?: number | null) => {
 
   // We use multicalls to reduce the number of RPC calls, but these calls are limited in size, so we batch them into
   // batches of 500 borrowers
-  const chunkedBorrowers = chunk(borrowers, 500);
+  const chunkedBorrowers = chunk(borrowers, MAX_BORROWER_DETAILS_MULTICALL);
   for (const accountBatch of chunkedBorrowers) {
     // Get the account details of every account in the batch
     // Account details are the tokens borrowed and the amount of tokens borrowed belonging to a borrower
@@ -49,22 +56,26 @@ export const getAccountsToWatch = async (startBlockNumber?: number | null) => {
  * liquidation potential.
  */
 export const getBorrowersFromLogs = async (startBlockNumber?: number | null) => {
-  const borrowers: string[] = [];
-  let actualStartBlockNumber = startBlockNumber ? startBlockNumber - 300 : deploymentBlockNumbers.oEtherV2;
+  console.info('Preparing borrowers to watch', { startBlockNumber });
+
+  const borrowerSet = new Set<string>([]);
+  let actualStartBlockNumber = startBlockNumber ? startBlockNumber - BORROWER_LOGS_LOOKBACK_BLOCKS : 0;
   const endBlockNumber = await blastProvider.getBlockNumber();
-  while (actualStartBlockNumber < endBlockNumber) {
-    const actualEndBlockNumber = Math.min(actualStartBlockNumber + 10_000, endBlockNumber);
-    const events = await oEtherV2.queryFilter(oEtherV2.filters.Borrow!(), actualStartBlockNumber, actualEndBlockNumber);
+  while (actualStartBlockNumber <= endBlockNumber) {
+    const actualEndBlockNumber = Math.min(actualStartBlockNumber + MAX_LOG_RANGE_BLOCKS, endBlockNumber);
+    const events = await getOrbitLogs(actualStartBlockNumber, actualEndBlockNumber);
+    console.info('Fetched events in block range', { start: actualStartBlockNumber, end: actualEndBlockNumber });
 
-    console.info('Fetched events from block', { start: actualStartBlockNumber, end: actualEndBlockNumber });
-
-    for (const event of events) borrowers.push((event as EventLog).args.borrower);
-    actualStartBlockNumber += 10_000;
-
-    await sleep(100);
+    for (const event of events) {
+      borrowerSet.add(event.args.borrower ?? event.args.redeemer);
+    }
+    actualStartBlockNumber += MAX_LOG_RANGE_BLOCKS;
+    await sleep(MIN_RPC_DELAY_MS);
   }
+  const borrowers = [...borrowerSet.values()];
+  console.info('Unique borrowers', { count: borrowers.length });
 
-  return { borrowers: uniq(borrowers), endBlockNumber };
+  return { borrowers: borrowers, endBlockNumber };
 };
 
 /**
@@ -103,7 +114,7 @@ export const getAccountDetails = async (borrowerBatch: string[]) => {
  * - Determine borrowed balance and liquidity
  */
 export const checkLiquidationPotentialOfAccounts = async (
-  accountDetails: [string[], bigint[]][],
+  accountDetails: [string[], bigint[], bigint[], [bigint, bigint]][],
   borrowers: string[]
 ) => {
   const accountsToWatch: string[] = [];
@@ -116,55 +127,64 @@ export const checkLiquidationPotentialOfAccounts = async (
 
   // Actually do the liquidity multicall
   console.info('Fetching account liquidity for accounts', { count: borrowers.length });
-  const [_blockNumber2, accountLiquidityReturndata] = await multicall3.aggregate!.staticCall(getAccountLiquidityCalls);
-  const accountLiquidity = accountLiquidityReturndata.map((data: string) =>
-    orbitSpaceStationInterface.decodeFunctionResult('getAccountLiquidity', data)
-  );
-
-  // Initialise a price oracle instance representing Orbit's price oracle
-  // We will apply a modifier to this price to determine profitability in the event of a liquidation at the modified price
-  const priceOracleAddress = await orbitSpaceStation.oracle!();
-  const priceOracle = new Contract(priceOracleAddress, priceOracleInterface, blastProvider);
-  const currentEthUsdPrice = await priceOracle.getUnderlyingPrice!(contractAddresses.oEtherV2);
 
   // Now we determine the profitability per borrower
   for (let i = 0; i < accountDetails.length; i++) {
-    // Every borrower can have multiple borrowed balances
-    const [oTokens, borrowBalances] = accountDetails[i]!; // NOTE: The borrow balances are in ETH.
+    const [oTokens, borrowBalances, tokenBalances, [shortfallValue, liquidityValue]] = accountDetails[i]!;
     const borrower = borrowers[i]!;
-    let ethBorrowBalance = 0n;
+    let usdBorrowBalance = 0n;
 
-    // Search for the biggest borrowed balance
     for (let i = 0; i < oTokens.length; i++) {
       const oToken = oTokens[i];
-
       if (oToken !== contractAddresses.oEtherV2) continue;
-
-      // TODO this is a bug from upstream I suspect; this should be Math.max(ethBorrowBalance, borrowBalances[i]!)
-      ethBorrowBalance = borrowBalances[i]!;
+      // @ts-ignore
+      usdBorrowBalance = BigInt(borrowBalances[i] - tokenBalances[i]);
     }
-    if (!ethBorrowBalance) continue;
-
-    if (ethBorrowBalance < MIN_ETH_BORROW) {
-      console.debug('Skipped account because the borrow balance is too low', { borrower, ethBorrowBalance });
+    if (usdBorrowBalance < MIN_USD_BORROW) {
+      console.debug('Skipped borrower because the borrow balance is too low', {
+        borrower,
+        usdBorrowBalance: formatEther(usdBorrowBalance),
+      });
       continue;
     }
 
-    const liquidity = accountLiquidity[i]!;
-    const ethBorrowBalanceUsd = (ethBorrowBalance * currentEthUsdPrice) / 10n ** 18n;
     if (
-      liquidity[2] === 0n && // No shortfall
-      liquidity[1] > getPercentageValue(ethBorrowBalanceUsd, SAFE_COLLATERAL_BUFFER_PERCENT) // The excess liquidity is more than the safe collateral buffer
+      shortfallValue === 0n && // No shortfall
+      liquidityValue > getPercentageValue(usdBorrowBalance, MIN_COLLATERAL_BUFFER_PERCENT) // The excess liquidity is more than the safe collateral buffer
     ) {
-      console.debug(`Skipped ${borrower} because it has enough collateral (liquidity: ${liquidity}) }}`);
+      console.debug('Skipped borrowers because it has enough collateral', {
+        borrower,
+        liquidity: formatEther(liquidityValue),
+      });
       continue;
     }
 
-    console.debug(
-      `Account (${borrower}) has enough borrowed ETH but little collateral (ethBorrowBalance: ${ethBorrowBalance}, liquidity: ${liquidity})`
-    );
+    console.debug('Borrowers with enough borrowed amount and little collateral', {
+      borrower,
+      usdBorrowBalance: formatEther(usdBorrowBalance),
+      liquidity: formatEther(liquidityValue),
+    });
     accountsToWatch.push(borrower);
+    await sleep(MIN_RPC_DELAY_MS);
   }
 
   return accountsToWatch;
+};
+
+export const getOrbitLogs = async (fromBlock: number, toBlock: number) => {
+  const logs = await blastProvider.getLogs({
+    address: Object.values(oTokenAddresses),
+    fromBlock,
+    toBlock,
+    topics: [
+      [
+        oEtherV2.filters.Borrow!().fragment.topicHash,
+        oEtherV2.filters.LiquidateBorrow!().fragment.topicHash,
+        oEtherV2.filters.RepayBorrow!().fragment.topicHash,
+        oEtherV2.filters.Redeem!().fragment.topicHash,
+      ],
+    ],
+  });
+
+  return logs.map((log) => OEtherV2Interface.parseLog(log)!);
 };
