@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "noEmit": true,
+    "lib": ["esnext"],
+    "module": "commonjs",
+    "esModuleInterop": true,
+    "moduleResolution": "node",
+    "strict": true,
+    "target": "esnext",
+    "skipLibCheck": true,
+    "noFallthroughCasesInSwitch": true,
+    "exactOptionalPropertyTypes": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitReturns": true,
+    "resolveJsonModule": true,
+    // Disabled because they are covered by Eslint rules
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    // Disabled because prefer the property syntax
+    "noPropertyAccessFromIndexSignature": false
+  },
+  "exclude": ["dist/**/*", "node_modules/**/*"],
+  "include": ["./scripts/**/*", "./src/**/*", "./tasks/**/*", ".eslintrc.js", "hardhat.config.ts"]
+}

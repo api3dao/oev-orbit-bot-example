@@ -1,0 +1,18 @@
+.build
+.env
+.idea
+.log
+.tsbuildinfo
+.vscode
+artifacts
+cache
+build
+dist
+node_modules
+coverage
+.DS_Store
+secrets.env
+.eslintcache
+
+# Custom ignore files
+*.ignore

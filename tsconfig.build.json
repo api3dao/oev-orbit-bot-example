@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "outDir": "dist",
+    "baseUrl": "./",
+    "declaration": false, // No need to build the declaration files because the project is not a library.
+    "declarationMap": false, // No need to build the declaration files because the project is not a library.
+    "sourceMap": true
+  },
+  "include": ["./src/**/*"]
+}
