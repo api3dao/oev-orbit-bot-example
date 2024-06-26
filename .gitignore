@@ -16,4 +16,3 @@ secrets.env
 
 # Custom ignore files
 *.ignore
-hardhat.config.ts
