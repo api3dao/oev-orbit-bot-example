@@ -595,7 +595,7 @@ const findOevLiquidation = async () => {
 
 export const targetChainDataInitialBlock = 657_831;
 
-export let storage: Storage = {
+export const storage: Storage = {
   currentlyActiveBid: null,
   targetChainData: {
     borrowers: [],
