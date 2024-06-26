@@ -17,6 +17,8 @@ module.exports = {
     'plugin:import/typescript',
   ],
   rules: {
+    'no-constant-condition': 'off',
+
     'unicorn/no-process-exit': 'off',
     'unicorn/prefer-top-level-await': 'off',
 

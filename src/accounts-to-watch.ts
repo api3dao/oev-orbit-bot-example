@@ -17,7 +17,7 @@ import {
   MAX_BORROWER_DETAILS_MULTICALL,
 } from './commons';
 import { contractAddresses } from './constants';
-import { OEtherV2Interface, orbitSpaceStationInterface } from './interfaces';
+import { OEtherV2Interface } from './interfaces';
 
 /**
  * Iterate through log events on Orbit to determine accounts worth watching.
