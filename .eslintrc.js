@@ -19,9 +19,6 @@ module.exports = {
   rules: {
     'no-constant-condition': 'off',
 
-    'unicorn/no-process-exit': 'off',
-    'unicorn/prefer-top-level-await': 'off',
-
     // Typescript
     '@typescript-eslint/consistent-return': 'off', // Does not play with no useless undefined when function return type is "T | undefined" and does not have a fixer.
     '@typescript-eslint/max-params': 'off',
