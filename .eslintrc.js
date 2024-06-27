@@ -8,7 +8,7 @@ module.exports = {
     es6: true,
     node: true,
   },
-  plugins: ['@typescript-eslint', 'import'],
+  plugins: ['@typescript-eslint', 'import', 'unicorn'],
   extends: [
     'eslint:recommended',
     'plugin:@typescript-eslint/recommended',
@@ -18,6 +18,10 @@ module.exports = {
   ],
   rules: {
     'no-constant-condition': 'off',
+
+    // Unicorn
+    'unicorn/no-process-exit': 'off',
+    'unicorn/prefer-top-level-await': 'off',
 
     // Typescript
     '@typescript-eslint/consistent-return': 'off', // Does not play with no useless undefined when function return type is "T | undefined" and does not have a fixer.
