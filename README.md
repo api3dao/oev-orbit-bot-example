@@ -12,13 +12,13 @@ The OEV Bot follows this flow to extract OEV from Orbit Lending:
 
 1. **Initialisation**
 
-  - Get log events from the target chain and build a list of accounts to watch for possible liquidation opportunities
-  - Get log events from the OEV Network to determine awarded/live/lost bids
+- Get log events from the target chain and build a list of accounts to watch for possible liquidation opportunities
+- Get log events from the OEV Network to determine awarded/live/lost bids
 
 2. **Main Loop**
 
-  - Continuously watch log events from Orbit to maintain a list of accounts to watch
-  - Attempt liquidations when opportunities are detected
+- Continuously watch log events from Orbit to maintain a list of accounts to watch
+- Attempt liquidations when opportunities are detected
 
 ## Opportunity Detection and Value Extraction - In Depth
 
@@ -86,9 +86,13 @@ facilitates the "transmutation" of a dAPI (from the concept of transmuting silve
 
 **Purpose of Transmutation:**
 
-- **Simulating Price Changes:** By transmuting the value of a data feed, we can simulate how changes in the price would affect account liquidity. This helps in identifying liquidation opportunities without altering the actual market conditions.
-- **Efficient Testing:** It allows for the efficient testing of various scenarios to find the most profitable liquidation opportunities.
-- **Non-Intrusive:** This process is non-intrusive and does not affect the actual state of the blockchain since it's done within a simulated environment.
+- **Simulating Price Changes:** By transmuting the value of a data feed, we can simulate how changes in the price would
+  affect account liquidity. This helps in identifying liquidation opportunities without altering the actual market
+  conditions.
+- **Efficient Testing:** It allows for the efficient testing of various scenarios to find the most profitable
+  liquidation opportunities.
+- **Non-Intrusive:** This process is non-intrusive and does not affect the actual state of the blockchain since it's
+  done within a simulated environment.
 
 The contract's relevant function is quoted below:
 
@@ -110,32 +114,41 @@ The contract's relevant function is quoted below:
 
 [//]: # 'TODO add a link to the actual contract'
 
-This function can only be called with a signer address of zero, valid only for non-write operations like a simulated RPC contract call. This can be executed via the [eth_call](https://www.quicknode.com/docs/ethereum/eth_call) RPC method. The deployed contract instance has the [DAPI_NAME_SETTER_ROLE on the Api3ServerV1](https://github.com/api3dao/contracts/blob/d3c7dc6683445df14bf5f43b07e6ad9cc2813cc5/contracts/api3-server-v1/DapiServer.sol#L66), allowing it to change the datafeed a dAPI name points to in a non-writing and/or simulated transaction.
+This function can only be called with a signer address of zero, valid only for non-write operations like a simulated RPC
+contract call. This can be executed via the [eth_call](https://www.quicknode.com/docs/ethereum/eth_call) RPC method. The
+deployed contract instance has the
+[DAPI_NAME_SETTER_ROLE on the Api3ServerV1](https://github.com/api3dao/contracts/blob/d3c7dc6683445df14bf5f43b07e6ad9cc2813cc5/contracts/api3-server-v1/DapiServer.sol#L66),
+allowing it to change the datafeed a dAPI name points to in a non-writing and/or simulated transaction.
 
 Within a simulated contract call, the app can:
 
 1. **Create and Sign a New Datafeed Data Point:**
-   - [Create and sign a new datafeed data point](https://github.com/api3dao/contracts/blob/d3c7dc6683445df14bf5f43b07e6ad9cc2813cc5/test/api3-server-v1/Api3ServerV1.sol.ts#L22) (value and timestamp).
+
+   - [Create and sign a new datafeed data point](https://github.com/api3dao/contracts/blob/d3c7dc6683445df14bf5f43b07e6ad9cc2813cc5/test/api3-server-v1/Api3ServerV1.sol.ts#L22)
+     (value and timestamp).
 
 2. **Simulate the Multicall Transaction:**
-   - Use the data feed update created earlier to initialize a datafeed our app controls, with a specified value (e.g., the current target data feed's value + 1%).
+   - Use the data feed update created earlier to initialize a datafeed our app controls, with a specified value (e.g.,
+     the current target data feed's value + 1%).
    - Set the target datafeed of the dApp's dAPI to the newly-initialized datafeed.
-   - Read the necessary functions on the target dApp to determine OEV opportunities and the profitability of a liquidation.
+   - Read the necessary functions on the target dApp to determine OEV opportunities and the profitability of a
+     liquidation.
 
-For the implementation in this project, refer to the `getDapiTransmutationCalls` function for the transmutation component. Also, refer to `simulateTransmutationMulticall` for the actual transmutation simulation.
+For the implementation in this project, refer to the `getDapiTransmutationCalls` function for the transmutation
+component. Also, refer to `simulateTransmutationMulticall` for the actual transmutation simulation.
 
 ## Run the OEV Bot Locally
 
 1. **Setup Environment:**
 
 Copy `.env.example` to `.env` and populate it
-  
+
 ```sh
 cp .env.example .env
 ```
 
 2. **Deploy and Fund the OrbitLiquidator Contract (First-time setup):**
-  
+
 ```sh
 # Build the project and contract
 pnpm build
@@ -179,7 +192,8 @@ pnpm orbit-bot:cli-utils withdraw-all-token
 
 ### Configuration
 
-Ensure that the `.env` file has been populated as described in the "Run the OEV Bot Locally" section. This is necessary for running the app but not for building the Docker image.
+Ensure that the `.env` file has been populated as described in the "Run the OEV Bot Locally" section. This is necessary
+for running the app but not for building the Docker image.
 
 ### Build Docker image
 
