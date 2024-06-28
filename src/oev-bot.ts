@@ -22,6 +22,8 @@ import {
   multicall3,
   blastNetwork,
   api3ServerV1,
+  REPORT_FULFILLMENT_DELAY_MS,
+  MAX_COLLATERAL_REPAY_PERCENTAGE,
 } from './commons';
 import {
   decodeBidDetails,
@@ -46,6 +48,7 @@ import {
   MIN_LIQUIDATION_PROFIT_USD,
   OEV_BID_VALIDITY,
   oevAuctioneerConfig,
+  oTokenAddresses,
 } from './constants';
 
 /**
@@ -330,26 +333,32 @@ const attemptLiquidation = async () => {
     return;
   }
 
-  const walletConnectedMultivall3 = new Contract(
+  const walletConnectedMulticall3 = new Contract(
     contractAddresses.multicall3,
     multicall3Interface,
     wallet.connect(blastProvider)
   );
-  const tx = await walletConnectedMultivall3.aggregate3Value!(calls, { value: bidAmount });
+  const tx = await walletConnectedMulticall3.aggregate3Value!(calls, { value: bidAmount });
   await tx.wait(1);
   console.info('Liquidation transaction', { txHash: tx.hash });
 
   console.info(`Waiting before reporting fulfillment`);
-  await sleep(300_000);
+  setTimeout(async () => reportFulfillment(bidDetails, tx.hash, bidId), REPORT_FULFILLMENT_DELAY_MS);
+};
+
+const reportFulfillment = async (bidDetails: BidDetails, oevUpdateTxHash: string, bidId: string) => {
+  console.info('Reporting fulfillment', { bidId });
 
   const encodedBidDetails = encodeBidDetails(bidDetails);
   const bidDetailsHash = ethers.keccak256(encodedBidDetails);
-  const fulfillmentDetails = ethers.getBytes(tx.hash);
-  const reportTx = await oevAuctionHouse
+  const fulfillmentDetails = ethers.getBytes(oevUpdateTxHash);
+
+  const tx = await oevAuctionHouse
     .connect(wallet.connect(oevNetworkProvider))
     .reportFulfillment(oevAuctioneerConfig.bidTopic, bidDetailsHash, fulfillmentDetails);
-  await reportTx.wait(1);
-  console.info(`Reported fulfillment`, { txHash: reportTx.hash });
+  await tx.wait(1);
+
+  console.info(`Reported fulfillment`, { bidId, oevUpdateTxHash, fulfillmentTxHash: tx.hash });
 };
 
 /**
@@ -387,7 +396,7 @@ const findOevLiquidation = async () => {
   // Transmutation data.
   const priceOracleAddress = await orbitSpaceStation.oracle!();
   const priceOracle = new Contract(priceOracleAddress, priceOracleInterface, blastProvider); // PriceOracleFactory.connect(priceOracleAddress, blastProvider);
-  const currentEthUsdPrice = await priceOracle.getUnderlyingPrice!(contractAddresses.oEtherV2);
+  const currentEthUsdPrice = await priceOracle.getUnderlyingPrice!(oTokenAddresses.oEtherV2);
   console.info('Current ETH/USD price', { price: formatEther(currentEthUsdPrice) });
   // NOTE: The data feed is configured with 1% deviation threshold and will be automatically updated after 60s delay.
   // This means that the OEV bot will be on timer to get its bid awarded and to capture the liquidation opportunity.
@@ -456,22 +465,20 @@ const findOevLiquidation = async () => {
       ...dapiTransmutationCalls,
       {
         target: contractAddresses.OrbitLiquidator,
-        data: OrbitLiquidator.interface.encodeFunctionData('getAccountDetails', [borrower, contractAddresses.oEtherV2]),
+        data: OrbitLiquidator.interface.encodeFunctionData('getAccountDetails', [borrower, oTokenAddresses.oEtherV2]),
       },
     ];
     const returndata = await simulateTransmutationMulticall(externalMulticallSimulator, transmutationCalls);
     const [getAccountDetailsEncoded] = returndata.slice(-1);
-    const [oTokenAddresses, borrowBalanceEth, tokenBalanceEth] = OrbitLiquidator.interface.decodeFunctionResult(
-      'getAccountDetails',
-      getAccountDetailsEncoded
-    );
-    const assetsInAccount = range(oTokenAddresses.length).map((i) => ({
-      oToken: oTokenAddresses[i],
+    const [oTokenAddressesInAccount, borrowBalanceEth, tokenBalanceEth] =
+      OrbitLiquidator.interface.decodeFunctionResult('getAccountDetails', getAccountDetailsEncoded);
+    const assetsInAccount = range(oTokenAddressesInAccount.length).map((i) => ({
+      oToken: oTokenAddressesInAccount[i],
       borrowBalance: borrowBalanceEth[i]!,
       tokenBalance: tokenBalanceEth[i]!,
     }));
 
-    const ethBorrowAsset = assetsInAccount.find((assetObj) => assetObj.oToken === contractAddresses.oEtherV2); // Only oEtherV2 uses API3 proxy. The oEther (v1) uses Pyth.
+    const ethBorrowAsset = assetsInAccount.find((assetObj) => assetObj.oToken === oTokenAddresses.oEtherV2); // Only oEtherV2 uses API3 proxy. The oEther (v1) uses Pyth.
     if (!ethBorrowAsset) {
       console.warn('There is no ETH borrow.');
       continue;
@@ -484,7 +491,7 @@ const findOevLiquidation = async () => {
     const maxBorrowRepay = min(
       (ethBorrowAsset.borrowBalance * (closeFactor as bigint)) / 10n ** 18n,
       OrbitLiquidatorBalance,
-      getPercentageValue(maxTokenBalanceAsset.tokenBalance, 95) // NOTE: We leave some buffer to be sure there is enough collateral after the interest accrual.
+      getPercentageValue(maxTokenBalanceAsset.tokenBalance, MAX_COLLATERAL_REPAY_PERCENTAGE) // NOTE: We leave some buffer to be sure there is enough collateral after the interest accrual.
     );
     console.debug('Potential liquidation', {
       borrower,
