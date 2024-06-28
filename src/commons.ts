@@ -23,7 +23,6 @@ import {
   solidityPackedKeccak256,
   SigningKey,
   AbiCoder,
-  parseEther,
 } from 'ethers';
 
 import {
