@@ -8,7 +8,6 @@ import {
   blastProvider,
   sleep,
   getPercentageValue,
-  oTokenAddresses,
   BORROWER_LOGS_LOOKBACK_BLOCKS,
   MAX_LOG_RANGE_BLOCKS,
   MIN_RPC_DELAY_MS,
@@ -16,7 +15,7 @@ import {
   MIN_USD_BORROW,
   MAX_BORROWER_DETAILS_MULTICALL,
 } from './commons';
-import { contractAddresses } from './constants';
+import { contractAddresses, oTokenAddresses } from './constants';
 import { OEtherV2Interface } from './interfaces';
 
 /**
@@ -129,7 +128,7 @@ export const checkLiquidationPotentialOfAccounts = async (
 
     for (let i = 0; i < oTokens.length; i++) {
       const oToken = oTokens[i];
-      if (oToken !== contractAddresses.oEtherV2) continue;
+      if (oToken !== oTokenAddresses.oEtherV2) continue;
       usdBorrowBalance = BigInt(borrowBalances[i]! - tokenBalances[i]!);
     }
     if (usdBorrowBalance < MIN_USD_BORROW) {
