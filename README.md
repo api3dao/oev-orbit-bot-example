@@ -149,8 +149,9 @@ cp .env.example .env
 
 3. **Ensure Funds:**
 
-Make sure the account on Blast associated with your `MNEMONIC` has sufficient funds on the OEV Network and Blast. A new mnemonic
-can be generated using the [API3 Airnode CLI](https://docs.api3.org/reference/airnode/latest/packages/admin-cli.html#generate-mnemonic) if required
+Make sure the account on Blast associated with your `MNEMONIC` has sufficient funds on the OEV Network and Blast. A new
+mnemonic can be generated using the
+[API3 Airnode CLI](https://docs.api3.org/reference/airnode/latest/packages/admin-cli.html#generate-mnemonic) if required
 
 ```sh
 pnpm dlx @api3/airnode-admin generate-mnemonic
@@ -202,14 +203,11 @@ for running the app but not for building the Docker image.
 
 ### Build Docker image
 
-Build the OEV bot docker image locally using the following commands (as per your requirements):
+Build and run the OEV bot docker image locally using the following commands:
 
 ```bash
 # Using the host machine's native CPU architecture
 pnpm docker:build
-
-# Using the x86_64 (aka amd64) CPU architecture
-pnpm docker:build:amd64
 
 # Run the bot
 pnpm docker:run
