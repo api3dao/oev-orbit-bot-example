@@ -191,7 +191,8 @@ pnpm orbit-bot:cli-utils withdraw-all-eth
 #### Withdraw all tokens from the OrbitLiquidator
 
 ```sh
-pnpm orbit-bot:cli-utils withdraw-all-token
+# The token address must be provided for the tokens to be withdrawn
+pnpm orbit-bot:cli-utils withdraw-all-token [token-address]
 ```
 
 ## Running the OEV Bot in Docker
