@@ -8,10 +8,6 @@ export const contractAddresses = {
   api3ServerV1: '0x709944a48cAf83535e43471680fDA4905FB3920a',
   externalMulticallSimulator: '0xb45fe2838F47DCCEe00F635785EAF0c723F742E5',
   multicall3: '0xcA11bde05977b3631167028862bE2a173976CA11',
-  oEther: '0xF9B3B455f5d900f62bC1792A6Ca6e1d47B989389',
-  oEtherV2: '0x0872b71EFC37CB8DdE22B2118De3d800427fdba0',
-  oUsdb: '0x9aECEdCD6A82d26F2f86D331B17a1C1676442A87',
-  oWbtc: '0x8c415331761063e5d6b1c8e700f996b13603fc2e',
   OrbitLiquidator: process.env.ETHER_LIQUIDATOR_ADDRESS ?? '0x',
   // OrbitLiquidator: '0x66E9CA29cD757E3c7C063163deCDB04feb1fC2bC',
   orbitSpaceStation: '0x1E18C3cb491D908241D0db14b081B51be7B6e652',
@@ -19,6 +15,16 @@ export const contractAddresses = {
   // OEV network
   oevAuctionHouse: '0x34f13a5c0ad750d212267bcbc230c87aefd35cc5',
   oevExtendedSelfMulticall: '0x58366D36C610A28F881e622029982e3D273B5761',
+};
+
+export const oTokenAddresses = {
+  oEtherV2: '0x0872b71EFC37CB8DdE22B2118De3d800427fdba0', // NOTE: oEther v1 uses Pyth and is deprecated and ignored by the bot.
+  oUsdb: '0x9aECEdCD6A82d26F2f86D331B17a1C1676442A87',
+  oWbtc: '0x8c415331761063e5d6b1c8e700f996b13603fc2e',
+  // LRT strategies
+  oEth: '0x795dCD51EaC6eb3123b7a4a1f906992EAA54Cb0e',
+  oezETH: '0x4991b902F397dC16b0BBd21b0057a20b4B357AE2',
+  ofwWETH: '0xB51b76C73fB24f472E0dd63Bb8195bD2170Bc65d',
 };
 
 export const MIN_ETH_BORROW = parseEther('0.01');

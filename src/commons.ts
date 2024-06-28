@@ -35,29 +35,18 @@ import {
   orbitSpaceStationInterface,
 } from './interfaces';
 import { Call } from './types';
-import { contractAddresses } from './constants';
+import { contractAddresses, oTokenAddresses } from './constants';
 
 export const MIN_COLLATERAL_BUFFER_PERCENT = 3; // The borrower is considered safe if they have at least X percent excess collateral relative to their borrowed amount.
 export const BORROWER_LOGS_LOOKBACK_BLOCKS = 300; // The number of blocks to look back for the borrower logs.
 export const MAX_LOG_RANGE_BLOCKS = 10_000; // The maximum number of blocks to fetch in a single call.
 export const MIN_RPC_DELAY_MS = 100; // The minimum delay between RPC calls in milliseconds.
 export const MAX_BORROWER_DETAILS_MULTICALL = 300; // The maximum number of borrowers to fetch details for in a single multicall.
-export const MIN_USD_BORROW = parseEther('20'); // The minimum amount of USD that a borrower must have borrowed to be considered for liquidation.
-
-// TODO from upstream, determine where this is used
-export const MIN_LIQUIDATION_PROFIT_USD = parseEther('0.01'); // NOTE: USD has 18 decimals, same as ETH.
+export const MIN_USD_BORROW = parseEther('0.1'); // normally 20 | TODO // The minimum amount of USD that a borrower must have borrowed to be considered for liquidation.
+export const REPORT_FULFILLMENT_DELAY_MS = 300_000;
 export const MAX_COLLATERAL_REPAY_PERCENTAGE = 95; // We leave some buffer to be sure there is enough collateral after the interest accrual.
 
-export const oTokenAddresses = {
-  oEtherV2: '0x0872b71EFC37CB8DdE22B2118De3d800427fdba0', // NOTE: oEther v1 uses Pyth and is deprecated and ignored by the bot.
-  oUsdb: '0x9aECEdCD6A82d26F2f86D331B17a1C1676442A87',
-  oWbtc: '0x8c415331761063e5d6b1c8e700f996b13603fc2e',
-  // LRT strategies
-  oEth: '0x795dCD51EaC6eb3123b7a4a1f906992EAA54Cb0e',
-  oezETH: '0x4991b902F397dC16b0BBd21b0057a20b4B357AE2',
-  ofwWETH: '0xB51b76C73fB24f472E0dd63Bb8195bD2170Bc65d',
-};
-
+// Math.min doesn't support bigint, so we have our implementation here
 export const min = (...args: bigint[]) => {
   if (args.length === 0) throw new Error('min() requires at least one argument');
   let mn = args[0]!;
@@ -80,6 +69,22 @@ export function deriveBeaconId(airnodeAddress: AddressLike, templateId: BytesLik
   return solidityPackedKeccak256(['address', 'bytes32'], [airnodeAddress, templateId]);
 }
 
+/**
+ * Generates call data for a multicall that sets a dApi name-> data feed mapping and then updates that datafeed with
+ * data of our choosing. This allows the app to simulate the liquidation profitability for different price movements.
+ *
+ * This process relies on various workings in the Api3ServerV1 contract. A useful reference can be found [here](https://docs.api3.org/reference/dapis/verify-beacon.html#verifying-beaconid).
+ *
+ * The process is:
+ * - Generate a templateId (see above reference), timestamp and encoded datafeed value
+ * - Sign the generated datafeed sample using a "dummy" private key
+ *     - This key is not used on chain, it is used purely for simulating datafeed values. For performance, it is hard-coded.
+ * - Derive the beaconId from a combination of the templateId and wallet address
+ * - Generate call data for setDapiName which sets the target dApi name to the beacon (datafeed) we just created an update for
+ * - Generate call data for updateBeaconWithSignedData using the generated and signed data
+ *
+ * The multicall data can then be used as part of a larger multicall which simulates a price movement.
+ */
 export async function getDapiTransmutationCalls(
   api3ServerV1Address: AddressLike,
   dapiName: BytesLike,
@@ -114,14 +119,6 @@ export async function getDapiTransmutationCalls(
   ];
 }
 
-export const blastNetwork = new Network('blast', hardhatConfig.networks().blast!.chainId);
-
-const blastFetchRequest = new FetchRequest('https://blast-rpc.publicnode.com');
-blastFetchRequest.timeout = 10_000; // NOTE: The default FetchRequest timeout is 300_000 ms
-export const blastProvider = new JsonRpcProvider(blastFetchRequest, blastNetwork, {
-  staticNetwork: blastNetwork,
-});
-
 export async function simulateTransmutationMulticall(externalMulticallSimulator: Contract, transmutationCalls: Call[]) {
   const transmutationCalldata = transmutationCalls.map((call) =>
     externalMulticallSimulatorInterface.encodeFunctionData('functionCall', [call.target, call.data])
@@ -135,16 +132,29 @@ export async function simulateTransmutationMulticall(externalMulticallSimulator:
   return multicallReturndata.map((returndata: string) => AbiCoder.defaultAbiCoder().decode(['bytes'], returndata)[0]);
 }
 
+export const sleep = async (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Common resources that can be initialised up-front
+
 export const wallet = Wallet.fromPhrase(process.env.MNEMONIC!);
 
-// TODO this should not longer be necessary I suspect; find all references and swap out with Liquidator contract
+// ethers JsonRpcProvider has a nasty habit of generating additional RPC calls if the network is not statically set.
+export const blastNetwork = new Network('blast', hardhatConfig.networks().blast!.chainId);
+
+// ethers JsonRpcProvider _also_ has extreme timeouts (300 s), so we override this with a custom FetchRequest
+const blastFetchRequest = new FetchRequest('https://blast-rpc.publicnode.com');
+blastFetchRequest.timeout = 10_000; // NOTE: The default FetchRequest timeout is 300_000 ms
+export const blastProvider = new JsonRpcProvider(blastFetchRequest, blastNetwork, {
+  staticNetwork: blastNetwork,
+});
+
 export const orbitSpaceStation = new Contract(
   contractAddresses.orbitSpaceStation,
   orbitSpaceStationInterface,
   blastProvider
 );
-export const oEtherV2 = new Contract(contractAddresses.oEtherV2, OEtherV2Interface, blastProvider);
-export const oUsdb = new Contract(contractAddresses.oUsdb, OErc20DelegatorInterface, blastProvider) as Contract & {
+export const oEtherV2 = new Contract(oTokenAddresses.oEtherV2, OEtherV2Interface, blastProvider);
+export const oUsdb = new Contract(oTokenAddresses.oUsdb, OErc20DelegatorInterface, blastProvider) as Contract & {
   balanceOf: (address: string) => Promise<bigint>;
   balanceOfUnderlying: { staticCall: (address: string) => Promise<bigint> };
 };
@@ -161,8 +171,6 @@ export const getPercentageValue = (value: bigint, percent: number) => {
   const onePercent = 10 ** 10;
   return (value * BigInt(Math.trunc(percent * onePercent))) / BigInt(onePercent) / 100n;
 };
-
-export const sleep = async (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export const oevNetwork = hardhatConfig.networks()['oev-network']!;
 

@@ -7,9 +7,7 @@ import {
   OrbitLiquidator,
   blastProvider,
   sleep,
-  orbitSpaceStation,
   getPercentageValue,
-  oTokenAddresses,
   BORROWER_LOGS_LOOKBACK_BLOCKS,
   MAX_LOG_RANGE_BLOCKS,
   MIN_RPC_DELAY_MS,
@@ -17,7 +15,13 @@ import {
   MIN_USD_BORROW,
   MAX_BORROWER_DETAILS_MULTICALL,
 } from './commons';
-import { contractAddresses, deploymentBlockNumbers, MIN_ETH_BORROW, SAFE_COLLATERAL_BUFFER_PERCENT } from './constants';
+import {
+  contractAddresses,
+  deploymentBlockNumbers,
+  MIN_ETH_BORROW,
+  oTokenAddresses,
+  SAFE_COLLATERAL_BUFFER_PERCENT,
+} from './constants';
 import { OEtherV2Interface, orbitSpaceStationInterface, priceOracleInterface } from './interfaces';
 
 /**
@@ -136,7 +140,7 @@ export const checkLiquidationPotentialOfAccounts = async (
 
     for (let i = 0; i < oTokens.length; i++) {
       const oToken = oTokens[i];
-      if (oToken !== contractAddresses.oEtherV2) continue;
+      if (oToken !== oTokenAddresses.oEtherV2) continue;
       // @ts-ignore
       usdBorrowBalance = BigInt(borrowBalances[i] - tokenBalances[i]);
     }
