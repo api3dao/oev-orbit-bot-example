@@ -122,7 +122,7 @@ allowing it to change the datafeed a dAPI name points to in a non-writing and/or
 
 Within a simulated contract call, the app can:
 
-1. **Create and Sign a New Datafeed Data Point:**
+1. **Create and Sign a new Datafeed data point:**
 
    - [Create and sign a new datafeed data point](https://github.com/api3dao/contracts/blob/d3c7dc6683445df14bf5f43b07e6ad9cc2813cc5/test/api3-server-v1/Api3ServerV1.sol.ts#L22)
      (value and timestamp).
