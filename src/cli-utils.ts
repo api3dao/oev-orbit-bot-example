@@ -1,7 +1,4 @@
-import * as fs from 'node:fs';
-import { join } from 'node:path';
-
-import { Contract, ContractFactory, formatEther, Interface, parseEther } from 'ethers';
+import { Contract, ContractFactory, formatEther, parseEther } from 'ethers';
 
 import { blastProvider, oEtherV2, oUsdb, wallet } from './commons';
 import { getOrbitLiquidatorArtifact, OrbitLiquidatorInterface } from './interfaces';

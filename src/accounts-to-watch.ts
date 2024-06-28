@@ -1,5 +1,5 @@
-import { Contract, type EventLog, formatEther } from 'ethers';
-import { chunk, uniq } from 'lodash';
+import { formatEther } from 'ethers';
+import { chunk } from 'lodash';
 
 import {
   multicall3,
@@ -15,14 +15,8 @@ import {
   MIN_USD_BORROW,
   MAX_BORROWER_DETAILS_MULTICALL,
 } from './commons';
-import {
-  contractAddresses,
-  deploymentBlockNumbers,
-  MIN_ETH_BORROW,
-  oTokenAddresses,
-  SAFE_COLLATERAL_BUFFER_PERCENT,
-} from './constants';
-import { OEtherV2Interface, orbitSpaceStationInterface, priceOracleInterface } from './interfaces';
+import { contractAddresses, oTokenAddresses } from './constants';
+import { OEtherV2Interface } from './interfaces';
 
 /**
  * Iterate through log events on Orbit to determine accounts worth watching.
@@ -123,12 +117,6 @@ export const checkLiquidationPotentialOfAccounts = async (
 ) => {
   const accountsToWatch: string[] = [];
 
-  // Encode the getAccountLiquidity call for use in a multicall for every borrower
-  const getAccountLiquidityCalls = borrowers.map((borrower) => ({
-    target: contractAddresses.orbitSpaceStation,
-    callData: orbitSpaceStationInterface.encodeFunctionData('getAccountLiquidity', [borrower]),
-  }));
-
   // Actually do the liquidity multicall
   console.info('Fetching account liquidity for accounts', { count: borrowers.length });
 
@@ -141,8 +129,7 @@ export const checkLiquidationPotentialOfAccounts = async (
     for (let i = 0; i < oTokens.length; i++) {
       const oToken = oTokens[i];
       if (oToken !== oTokenAddresses.oEtherV2) continue;
-      // @ts-ignore
-      usdBorrowBalance = BigInt(borrowBalances[i] - tokenBalances[i]);
+      usdBorrowBalance = BigInt(borrowBalances[i]! - tokenBalances[i]!);
     }
     if (usdBorrowBalance < MIN_USD_BORROW) {
       console.debug('Skipped borrower because the borrow balance is too low', {
