@@ -64,9 +64,13 @@ const main = async () => {
         ethToSend: parseEther(ethToSend),
       });
 
-      const depositTx = await OrbitLiquidator.deposit!({ value: parseEther(ethToSend) });
+      const depositTx = await wallet.connect(blastProvider).sendTransaction({
+        value: parseEther(ethToSend),
+        to: await OrbitLiquidator.getAddress(),
+      });
       await depositTx.wait(1);
       console.info('Deposited', { txHash: depositTx.hash });
+
       return;
     }
     case 'withdraw-all-eth': {
