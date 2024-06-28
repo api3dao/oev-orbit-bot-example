@@ -50,6 +50,7 @@ import {
   oevAuctioneerConfig,
   oTokenAddresses,
 } from './constants';
+import { log } from 'node:util';
 
 /**
  * The bot's main coordinator function.
@@ -71,8 +72,14 @@ import {
  * - Persist accounts to watch loop: periodically commit the accounts to watch store to disk
  */
 export const runBot = async () => {
+  const { logs, lastFetchedBlock } = await getInitialOevNetworkLogs();
+  storage.oevNetworkData = {
+    lastFetchedBlock,
+    logs,
+  };
+
   while (true) {
-    const startBlock = 0;
+    const startBlock = storage.oevNetworkData.lastFetchedBlock + 1;
     const endBlock = await oevNetworkProvider.getBlockNumber();
     const logs = await getOevNetworkLogs(startBlock, endBlock);
 
@@ -80,8 +87,12 @@ export const runBot = async () => {
 
     storage.oevNetworkData = {
       lastFetchedBlock: endBlock,
-      logs,
+      logs: [...storage.oevNetworkData.logs, ...logs],
     };
+
+    if (logs.length > 0) {
+      const prunedLogs = pruneLogs(storage.oevNetworkData.logs);
+    }
 
     if (storage.targetChainData.lastBlock === targetChainDataInitialBlock) {
       await expediteActiveBids(); // NOTE: We want to expedite the active bids, so that the bot can start fresh.
@@ -105,6 +116,22 @@ export const runBot = async () => {
 
     await sleep(5000);
   }
+};
+
+export const pruneLogs = (logs: OevNetworkLog[]) => {
+  const oldestLogEntryTimestamp = Date.now() / 1000 - 25 * 60 * 60;
+  const possibleOldLog = logs
+    .map((log, idx) => ({
+      ...log,
+      idx,
+    }))
+    .find((log) => log.eventName === 'AwardedBid' && log.awardDetails.timestamp < oldestLogEntryTimestamp);
+
+  if (!possibleOldLog) {
+    return logs;
+  }
+
+  return logs.slice(possibleOldLog.idx);
 };
 
 const oevEventTopics = [
@@ -151,7 +178,42 @@ const decodeOevNetworkLog = (log: ethers.LogDescription): OevNetworkLog => {
   }
 };
 
+const getInitialOevNetworkLogs = async () => {
+  const allLogs: OevNetworkLog[] = [];
+  let latestBlock = await oevNetworkProvider.getBlockNumber();
+  const networkLatestBlock = latestBlock;
+  const oldestAllowedTimestamp = Date.now() - 25 * 60 * 60 * 1000; // Auctioneer only considers the last 24 hours
+  let currentTimestamp = Date.now();
+
+  console.log(`Doing initial fetch of OEV Network logs`);
+  while (currentTimestamp > oldestAllowedTimestamp) {
+    const fromBlock = Math.max(latestBlock - 10_000, 0);
+    const logs = await oevNetworkProvider.getLogs({
+      fromBlock,
+      toBlock: latestBlock,
+      address: oevAuctionHouse.getAddress(),
+      topics: [oevEventTopics, ethers.zeroPadValue(wallet.address, 32), oevAuctioneerConfig.bidTopic],
+    });
+    const decodedLogs = logs.map((log) => decodeOevNetworkLog(oevAuctionHouse.interface.parseLog(log)!));
+    allLogs.unshift(...decodedLogs);
+
+    const fromBlockContents = (await oevNetworkProvider.getBlock(fromBlock))!;
+    currentTimestamp = fromBlockContents.timestamp * 1000;
+
+    latestBlock = fromBlock;
+  }
+
+  console.log(`Fetched ${allLogs.length} logs, from block ${latestBlock} to ${networkLatestBlock}`);
+
+  return { logs: allLogs, lastFetchedBlock: networkLatestBlock };
+};
+
 const getOevNetworkLogs = async (startBlock: number, endBlock: number) => {
+  if (startBlock > endBlock) {
+    console.info('OEV network logs up to date');
+    return [];
+  }
+
   const allLogs: OevNetworkLog[] = [];
   while (startBlock < endBlock) {
     const actualEndBlock = Math.min(startBlock + 10_000, endBlock);
