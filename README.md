@@ -128,7 +128,7 @@ Within a simulated contract call, the app can:
      (value and timestamp).
 
 2. **Simulate the Multicall Transaction:**
-   - Use the data feed update created earlier to initialize a datafeed our app controls, with a specified value (e.g.,
+   - Use the data feed update created earlier to initialize a datafeed our app controls, with a specified value (e.g.
      the current target data feed's value + 1%).
    - Set the target datafeed of the dApp's dAPI to the newly-initialized datafeed.
    - Read the necessary functions on the target dApp to determine OEV opportunities and the profitability of a
