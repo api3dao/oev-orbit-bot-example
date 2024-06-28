@@ -10,12 +10,15 @@ Before running this application, be sure to read and understand the code.
 
 The OEV Bot follows this flow to extract OEV from Orbit Lending:
 
-- Initialisation
-  - Get log events from the target chain and build a list of accounts to watch for possible liquidation opportunities
-  - Get log events from the OEV Network to determine awarded/live/lost bids
-- Main Loop
-  - Continuously watch log events from Orbit to maintain a list of accounts to watch
-  - Attempt liquidations when opportunities are detected
+1. **Initialisation**
+
+- Get log events from the target chain and build a list of accounts to watch for possible liquidation opportunities
+- Get log events from the OEV Network to determine awarded/live/lost bids
+
+2. **Main Loop**
+
+- Continuously watch log events from Orbit to maintain a list of accounts to watch
+- Attempt liquidations when opportunities are detected
 
 ## Opportunity Detection and Value Extraction - In Depth
 
@@ -43,15 +46,15 @@ Given a list of accounts to watch, the app does the following: (Refer to `findOe
 
   - [Bid on an update for the feed](https://oev-docs--pr12-new-oev-docs-0y2wddya.web.app/reference/oev-network/searchers/submit-bids.html#with-an-expiration-timestamp)
 
-    - ```typescript
-      const bidDetails: BidDetails = {
-        oevProxyAddress: contractAddresses.api3OevEthUsdProxy,
-        conditionType: BID_CONDITION.GTE,
-        conditionValue: transmutationValue,
-        updateSenderAddress: contractAddresses.multicall3,
-        nonce,
-      };
-      ```
+    ```typescript
+    const bidDetails: BidDetails = {
+      oevProxyAddress: contractAddresses.api3OevEthUsdProxy,
+      conditionType: BID_CONDITION.GTE,
+      conditionValue: transmutationValue,
+      updateSenderAddress: contractAddresses.multicall3,
+      nonce,
+    };
+    ```
 
 - Store the active bid's parameters
 
@@ -81,6 +84,16 @@ Determining these values would generally require re-implementing the mathematica
 something which is often very onerous. To make integrating into a target dApp easier, API3 has built a contract that
 facilitates the "transmutation" of a dAPI (from the concept of transmuting silver to gold).
 
+**Purpose of Transmutation:**
+
+- **Simulating Price Changes:** By transmuting the value of a data feed, we can simulate how changes in the price would
+  affect account liquidity. This helps in identifying liquidation opportunities without altering the actual market
+  conditions.
+- **Efficient Testing:** It allows for the efficient testing of various scenarios to find the most profitable
+  liquidation opportunities.
+- **Non-Intrusive:** This process is non-intrusive and does not affect the actual state of the blockchain since it's
+  done within a simulated environment.
+
 The contract's relevant function is quoted below:
 
 ```solidity
@@ -101,67 +114,102 @@ The contract's relevant function is quoted below:
 
 [//]: # 'TODO add a link to the actual contract'
 
-The function can only be called with a signer address of zero, and such a signer is only valid for non-write operations,
-like a simulated RPC contract call. This can be executed via the
-[eth_call](https://www.quicknode.com/docs/ethereum/eth_call) RPC method. The deployed contract instance this function
-belongs to has been granted the
-[DAPI_NAME_SETTER_ROLE on the Api3ServerV1](https://github.com/api3dao/contracts/blob/d3c7dc6683445df14bf5f43b07e6ad9cc2813cc5/contracts/api3-server-v1/DapiServer.sol#L66).
-This allows this contract to change the datafeed a dApi name points to - but there is no risk to anyone as this can only
-be called inside a non-writing and/or simulated transaction.
+This function can only be called with a signer address of zero, valid only for non-write operations like a simulated RPC
+contract call. This can be executed via the [eth_call](https://www.quicknode.com/docs/ethereum/eth_call) RPC method. The
+deployed contract instance has the
+[DAPI_NAME_SETTER_ROLE on the Api3ServerV1](https://github.com/api3dao/contracts/blob/d3c7dc6683445df14bf5f43b07e6ad9cc2813cc5/contracts/api3-server-v1/DapiServer.sol#L66),
+allowing it to change the datafeed a dAPI name points to in a non-writing and/or simulated transaction.
 
-Therefore, within a simulated contract call, the app can do the following (via an intermediate contract):
+Within a simulated contract call, the app can:
 
-- [Create and sign a new datafeed data point](https://github.com/api3dao/contracts/blob/d3c7dc6683445df14bf5f43b07e6ad9cc2813cc5/test/api3-server-v1/Api3ServerV1.sol.ts#L22)
-  (value and timestamp)
-- Within a multicall transaction
-  - Use the data feed update created earlier to initialise a datafeed our app controls, with a value we have specified
-    - As an example, this could be the current target data feed's value + 1%
-  - Set the target datafeed of the dApp's dApi to the newly-initialised datafeed
-  - Read the necessary functions on the target dApp to determine OEV opportunities and profitability of a liquidation
+1. **Create and Sign a new Datafeed data point:**
+
+   - [Create and sign a new datafeed data point](https://github.com/api3dao/contracts/blob/d3c7dc6683445df14bf5f43b07e6ad9cc2813cc5/test/api3-server-v1/Api3ServerV1.sol.ts#L22)
+     (value and timestamp).
+
+2. **Simulate the Multicall Transaction:**
+   - Use the data feed update created earlier to initialize a datafeed our app controls, with a specified value (e.g.
+     the current target data feed's value + 1%).
+   - Set the target datafeed of the dApp's dAPI to the newly-initialized datafeed.
+   - Read the necessary functions on the target dApp to determine OEV opportunities and the profitability of a
+     liquidation.
 
 For the implementation in this project, refer to the `getDapiTransmutationCalls` function for the transmutation
-component. Also refer to `simulateTransmutationMulticall` for the actual transmutation simulation.
+component. Also, refer to `simulateTransmutationMulticall` for the actual transmutation simulation.
 
 ## Run the OEV Bot Locally
 
-- Copy `.env.example` to `.env` and populate it
-  - `cp .env.example .env`
-  - If this app is being run for the first time you'll need to deploy and fund the OrbitLiquidator contract:
-    - Build everything, including the contract: `pnpm build`
-    - Deploy the contract: Run `pnpm orbit-bot:cli-utils deploy`
-    - Populate the `ETHER_LIQUIDATOR_ADDRESS` in .env with the address of the contract deployed above
-    - Fund the contract: `pnpm orbit-bot:cli-utils deposit 1` (for 1 ETH)
-      - Note that you can withdraw ETH and tokens with:
-        - `pnpm orbit-bot:cli-utils withdraw-all-eth`
-        - `pnpm orbit-bot:cli-utils withdraw-all-token`
-- Ensure that the account on Blast, associated with the `MNEMONIC` you provided has some funds on the OEV Network and
-  Blast.
+1. **Setup Environment:**
 
-Finally, run the app: `pnpm orbit-bot`
+Copy `.env.example` to `.env` and populate it
+
+```sh
+cp .env.example .env
+```
+
+3. **Ensure Wallet is Funded:**
+
+Make sure the account on Blast associated with your `MNEMONIC` has sufficient funds on the OEV Network and Blast. A new
+mnemonic can be generated using the
+[API3 Airnode CLI](https://docs.api3.org/reference/airnode/latest/packages/admin-cli.html#generate-mnemonic) if required
+
+```sh
+pnpm dlx @api3/airnode-admin generate-mnemonic
+```
+
+3. **Deploy and Fund the OrbitLiquidator Contract (First-time setup):**
+
+```sh
+# Build the project and contract
+pnpm build
+
+# Deploy the OrbitLiquidator contract
+pnpm orbit-bot:cli-utils deploy
+```
+
+4. **Fund the OrbitLiquidator contract**
+
+```sh
+# REQUIRED: Update `.env` with the `ETHER_LIQUIDATOR_ADDRESS` with the output of the deploy command
+pnpm orbit-bot:cli-utils deposit 1 # for 1 ETH
+```
+
+5. **Run the Bot:**
+
+```sh
+pnpm orbit-bot
+```
+
+### Additional commands
+
+#### Withdraw all ETH from the OrbitLiquidator
+
+```sh
+pnpm orbit-bot:cli-utils withdraw-all-eth
+```
+
+#### Withdraw all tokens from the OrbitLiquidator
+
+```sh
+# The token address must be provided for the tokens to be withdrawn
+pnpm orbit-bot:cli-utils withdraw-all-token [token-address]
+```
 
 ## Running the OEV Bot in Docker
 
 ### Configuration
 
-Ensure that the .env file has been populated, as described above. This is necessary for running the app, but not for
-building the Docker image.
+Ensure that the `.env` file has been populated as described in the "Run the OEV Bot Locally" section. This is necessary
+for running the app but not for building the Docker image.
 
 ### Build Docker image
 
-Build the docker images locally using any of the following commands (as per your requirements):
+Build and run the OEV bot docker image locally using the following commands:
 
 ```bash
-# Builds all three bots using the host machine's CPU architecture
+# Using the host machine's native CPU architecture
 pnpm docker:build
-
-# Builds all three bots using the x86_64 (aka amd64) CPU architecture
-pnpm docker:build:amd64
 
 # Run the bot
 pnpm docker:run
 ```
-
-## Other notes
-
-- To withdraw all Eth funds from the liquidator contract, run: `pnpm orbit-bot:cli-utils withdraw-all-eth`
-- To withdraw all tokens from the liquidator contract, run: `pnpm orbit-bot:cli-utils withdraw-all-token`
