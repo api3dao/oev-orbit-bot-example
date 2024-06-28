@@ -5,7 +5,8 @@ import { configDotenv } from 'dotenv';
 // Load env file
 configDotenv({ path: join(__dirname, '../.env') });
 
-// https://github.com/GoogleChromeLabs/jsbi/issues/30#issuecomment-953187833
+// JSON.stringify doesn't natively handle BigInt values, so monkeypatch it to allow for easier use
+// See: https://github.com/GoogleChromeLabs/jsbi/issues/30#issuecomment-953187833
 (BigInt.prototype as any).toJSON = function () {
   return this.toString();
 };
