@@ -147,7 +147,7 @@ Copy `.env.example` to `.env` and populate it
 cp .env.example .env
 ```
 
-3. **Ensure Funds:**
+3. **Ensure Wallet is Funded:**
 
 Make sure the account on Blast associated with your `MNEMONIC` has sufficient funds on the OEV Network and Blast. A new
 mnemonic can be generated using the
