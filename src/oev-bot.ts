@@ -50,7 +50,6 @@ import {
   oevAuctioneerConfig,
   oTokenAddresses,
 } from './constants';
-import { log } from 'node:util';
 
 /**
  * The bot's main coordinator function.
@@ -91,7 +90,7 @@ export const runBot = async () => {
     };
 
     if (logs.length > 0) {
-      const prunedLogs = pruneLogs(storage.oevNetworkData.logs);
+      storage.oevNetworkData.logs = pruneLogs(storage.oevNetworkData.logs);
     }
 
     if (storage.targetChainData.lastBlock === targetChainDataInitialBlock) {
