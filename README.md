@@ -147,7 +147,16 @@ Copy `.env.example` to `.env` and populate it
 cp .env.example .env
 ```
 
-2. **Deploy and Fund the OrbitLiquidator Contract (First-time setup):**
+3. **Ensure Funds:**
+
+Make sure the account on Blast associated with your `MNEMONIC` has sufficient funds on the OEV Network and Blast. A new mnemonic
+can be generated using the [API3 Airnode CLI](https://docs.api3.org/reference/airnode/latest/packages/admin-cli.html#generate-mnemonic) if required
+
+```sh
+pnpm dlx @api3/airnode-admin generate-mnemonic
+```
+
+3. **Deploy and Fund the OrbitLiquidator Contract (First-time setup):**
 
 ```sh
 # Build the project and contract
@@ -157,16 +166,12 @@ pnpm build
 pnpm orbit-bot:cli-utils deploy
 ```
 
-3. **Fund the OrbitLiquidator contract**
+4. **Fund the OrbitLiquidator contract**
 
 ```sh
 # REQUIRED: Update `.env` with the `ETHER_LIQUIDATOR_ADDRESS` with the output of the deploy command
 pnpm orbit-bot:cli-utils deposit 1 # for 1 ETH
 ```
-
-4. **Ensure Funds:**
-
-Make sure the account on Blast associated with your `MNEMONIC` has sufficient funds on the OEV Network and Blast.
 
 5. **Run the Bot:**
 
