@@ -1,11 +1,8 @@
-import * as fs from 'node:fs';
-import { join } from 'node:path';
-
-import { Contract, ContractFactory, ethers, formatEther, Interface, parseEther } from 'ethers';
+import { Contract, ContractFactory, formatEther, parseEther } from 'ethers';
 
 import { blastProvider, oEtherV2, oevAuctionHouse, oevNetworkProvider, oUsdb, wallet } from './commons';
 import { getOrbitLiquidatorArtifact, OrbitLiquidatorInterface } from './interfaces';
-import { contractAddresses, oevAuctioneerConfig } from './constants';
+import { contractAddresses } from './constants';
 
 const OrbitLiquidatorAddress = contractAddresses.OrbitLiquidator;
 
@@ -102,7 +99,7 @@ const main = async () => {
 
       const fromBlock = await oevNetworkProvider.getBlockNumber();
       console.info('Withdraw initiated - waiting for tx to be mined', { txHash: initiateWithdrawTx.hash });
-      const result = await initiateWithdrawTx.wait(1);
+      await initiateWithdrawTx.wait(1);
       const toBlock = await oevNetworkProvider.getBlockNumber();
 
       const initiateWithdrawalLogs = await oevNetworkProvider.getLogs({
