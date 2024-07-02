@@ -1,6 +1,6 @@
 import { Contract, ContractFactory, formatEther, parseEther } from 'ethers';
 
-import { blastProvider, oEtherV2, oevAuctionHouse, oevNetworkProvider, oUsdb, wallet } from './commons';
+import { blastProvider, oEtherV2, oUsdb, wallet } from './commons';
 import { getOrbitLiquidatorArtifact, OrbitLiquidatorInterface } from './interfaces';
 import { contractAddresses } from './constants';
 
@@ -67,57 +67,6 @@ const main = async () => {
       });
       await depositTx.wait(1);
       console.info('Deposited', { txHash: depositTx.hash });
-
-      return;
-    }
-    case 'deposit-oev': {
-      const ethToSend = process.argv[3]!;
-      if (!ethToSend) throw new Error('ETH amount to deposit is required (e.g. 0.05)');
-      console.info('Depositing ETH to OEV AuctionHouse contract', {
-        address: await oevAuctionHouse.getAddress(),
-        ethToSend: parseEther(ethToSend),
-      });
-
-      const depositTx = await oevAuctionHouse.connect(wallet.connect(oevNetworkProvider)).deposit({
-        value: parseEther(ethToSend),
-      });
-
-      await depositTx.wait(1);
-      console.info('Deposited', { txHash: depositTx.hash });
-
-      return;
-    }
-    case 'cancel-withdraw-oev': {
-      const initiateWithdrawTx = await oevAuctionHouse.connect(wallet.connect(oevNetworkProvider)).cancelWithdrawal();
-      await initiateWithdrawTx.wait(1);
-
-      console.log(`Withdrawal cancelled: ${initiateWithdrawTx.hash}`);
-      return;
-    }
-    case 'initiate-withdraw-oev': {
-      const initiateWithdrawTx = await oevAuctionHouse.connect(wallet.connect(oevNetworkProvider)).initiateWithdrawal();
-
-      const fromBlock = await oevNetworkProvider.getBlockNumber();
-      console.info('Withdraw initiated - waiting for tx to be mined', { txHash: initiateWithdrawTx.hash });
-      await initiateWithdrawTx.wait(1);
-      const toBlock = await oevNetworkProvider.getBlockNumber();
-
-      const initiateWithdrawalLogs = await oevNetworkProvider.getLogs({
-        fromBlock,
-        toBlock,
-        address: oevAuctionHouse.getAddress(),
-        topics: [[oevAuctionHouse.filters.InitiatedWithdrawal().fragment.topicHash]],
-      });
-
-      const earliestWithdrawalResultLog = initiateWithdrawalLogs[0]!.data;
-      const earliestWithdrawalResultDecodedResult = oevAuctionHouse.interface.decodeEventLog(
-        'InitiatedWithdrawal',
-        earliestWithdrawalResultLog
-      );
-
-      console.log(
-        `Earliest withdrawal at ${earliestWithdrawalResultDecodedResult[0][1]} or ${new Date(Number(earliestWithdrawalResultDecodedResult[1] * 1000n))}`
-      );
 
       return;
     }

@@ -74,7 +74,7 @@ import {
 export const runBot = async () => {
   const sleepTime = process.env.MAIN_LOOP_SLEEP_TIME ? parseInt(process.env.MAIN_LOOP_SLEEP_TIME, 10) : 5_000;
 
-  const { logs, lastFetchedBlock } = await getInitialOevNetworkLogs();
+  const { logs, lastFetchedBlock } = await getOevNetworkLogs();
   storage.oevNetworkData = {
     lastFetchedBlock,
     logs,
@@ -83,7 +83,7 @@ export const runBot = async () => {
   while (true) {
     const startBlock = storage.oevNetworkData.lastFetchedBlock + 1;
     const endBlock = await oevNetworkProvider.getBlockNumber();
-    const logs = await getOevNetworkLogs(startBlock, endBlock);
+    const { logs } = await getOevNetworkLogs(startBlock, endBlock);
 
     console.info('Fetched OEV network logs', { count: logs.length, startBlock, endBlock });
 
@@ -187,16 +187,21 @@ const decodeOevNetworkLog = (log: ethers.LogDescription): OevNetworkLog => {
  * Collects and processes OEV network logs, starting at the `latest` block in the chain and working backwards until it
  * hits the oldest allowable block.
  */
-export const getInitialOevNetworkLogs = async () => {
+export const getOevNetworkLogs = async (startBlock?: number, endBlock?: number) => {
   const allLogs: OevNetworkLog[] = [];
-  let latestBlock = await oevNetworkProvider.getBlockNumber();
+  let latestBlock = endBlock ?? (await oevNetworkProvider.getBlockNumber());
+
+  if (startBlock && endBlock && startBlock > endBlock) {
+    return { logs: [], lastFetchedBlock: startBlock };
+  }
+
   const networkLatestBlock = latestBlock;
   const oldestAllowedTimestamp = Date.now() - 25 * 60 * 60 * 1000; // Auctioneer only considers the last 24 hours
   let currentTimestamp = Date.now();
 
-  console.log(`Doing initial fetch of OEV Network logs`);
-  while (currentTimestamp > oldestAllowedTimestamp) {
-    const fromBlock = Math.max(latestBlock - 10_000, 0);
+  console.log(`Fetching OEV Network logs`);
+  while (currentTimestamp > oldestAllowedTimestamp && latestBlock > (startBlock ?? 0)) {
+    const fromBlock = startBlock ?? Math.max(latestBlock - 10_000, 0);
     const logs = await oevNetworkProvider.getLogs({
       fromBlock,
       toBlock: latestBlock,
@@ -215,28 +220,6 @@ export const getInitialOevNetworkLogs = async () => {
   console.log(`Fetched ${allLogs.length} logs, from block ${latestBlock} to ${networkLatestBlock}`);
 
   return { logs: allLogs, lastFetchedBlock: networkLatestBlock };
-};
-
-const getOevNetworkLogs = async (startBlock: number, endBlock: number) => {
-  if (startBlock > endBlock) {
-    console.info('OEV network logs up to date');
-    return [];
-  }
-
-  const allLogs: OevNetworkLog[] = [];
-  while (startBlock < endBlock) {
-    const actualEndBlock = Math.min(startBlock + 10_000, endBlock);
-    const logs = await oevNetworkProvider.getLogs({
-      fromBlock: startBlock,
-      toBlock: actualEndBlock,
-      address: oevAuctionHouse.getAddress(),
-      topics: [oevEventTopics, ethers.zeroPadValue(wallet.address, 32), oevAuctioneerConfig.bidTopic],
-    });
-    allLogs.push(...logs.map((log) => decodeOevNetworkLog(oevAuctionHouse.interface.parseLog(log)!)));
-    startBlock += 10_000;
-  }
-
-  return allLogs;
 };
 
 interface Bid {
