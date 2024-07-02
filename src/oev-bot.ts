@@ -74,13 +74,11 @@ import {
 export const runBot = async () => {
   const sleepTime = process.env.MAIN_LOOP_SLEEP_TIME ? parseInt(process.env.MAIN_LOOP_SLEEP_TIME, 10) : 5_000;
 
-  if (storage.oevNetworkData.logs.length === 0) {
-    const { logs, lastFetchedBlock } = await getInitialOevNetworkLogs();
-    storage.oevNetworkData = {
-      lastFetchedBlock,
-      logs,
-    };
-  }
+  const { logs, lastFetchedBlock } = await getInitialOevNetworkLogs();
+  storage.oevNetworkData = {
+    lastFetchedBlock,
+    logs,
+  };
 
   while (true) {
     const startBlock = storage.oevNetworkData.lastFetchedBlock + 1;
@@ -593,7 +591,6 @@ const findOevLiquidation = async () => {
     ];
     const liquidateResult = await simulateTransmutationMulticall(externalMulticallSimulator, liquidateBorrowCalls);
 
-    console.log(liquidateResult);
     const liquidateReturndata = liquidateResult.at(-1);
     const [profitUsd] = OrbitLiquidator.interface.decodeFunctionResult('liquidate', liquidateReturndata);
     if (profitUsd <= MIN_LIQUIDATION_PROFIT_USD) {
