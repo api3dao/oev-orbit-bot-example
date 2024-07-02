@@ -52,21 +52,6 @@ import {
   SIMULATION_PERCENTAGE,
 } from './constants';
 
-const expediteBid = async (bidId: string, encodedBidDetails: string) => {
-  try {
-    console.debug('Expediting bid', { bidId });
-
-    const tx = await oevAuctionHouse
-      .connect(wallet.connect(oevNetworkProvider))
-      .expediteBidExpirationMaximally(oevAuctioneerConfig.bidTopic, ethers.keccak256(encodedBidDetails));
-    await tx.wait(1);
-
-    console.info('Expedited bid', { bidId, txHash: tx.hash });
-  } catch (e) {
-    console.error('Attempt to expedite bid failed', { bidId, e });
-  }
-};
-
 /**
  * The bot's main coordinator function.
  *
@@ -87,9 +72,6 @@ const expediteBid = async (bidId: string, encodedBidDetails: string) => {
  * - Persist accounts to watch loop: periodically commit the accounts to watch store to disk
  */
 export const runBot = async () => {
-  // If the development.ts file is present, import it
-  void import('./development');
-
   const sleepTime = process.env.MAIN_LOOP_SLEEP_TIME ? parseInt(process.env.MAIN_LOOP_SLEEP_TIME, 10) : 5_000;
 
   if (storage.oevNetworkData.logs.length === 0) {

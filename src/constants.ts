@@ -1,8 +1,8 @@
 import { parseEther } from 'ethers';
 
-export const SAFE_COLLATERAL_BUFFER_PERCENT = 3;
-
-export const SIMULATION_PERCENTAGE = 0.1;
+// The percentage to use when simulating a transmutation.
+// For example, 0.1 here would test if liquidations are profitable above 100.1% of the current data feed value
+export const SIMULATION_PERCENTAGE = 0.5;
 
 export const contractAddresses = {
   // Blast network

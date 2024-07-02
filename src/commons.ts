@@ -23,6 +23,7 @@ import {
   solidityPackedKeccak256,
   SigningKey,
   AbiCoder,
+  parseEther,
 } from 'ethers';
 
 import {
@@ -41,7 +42,7 @@ export const BORROWER_LOGS_LOOKBACK_BLOCKS = 300; // The number of blocks to loo
 export const MAX_LOG_RANGE_BLOCKS = 10_000; // The maximum number of blocks to fetch in a single call.
 export const MIN_RPC_DELAY_MS = 100; // The minimum delay between RPC calls in milliseconds.
 export const MAX_BORROWER_DETAILS_MULTICALL = 300; // The maximum number of borrowers to fetch details for in a single multicall.
-export const MIN_USD_BORROW = 1n; //= parseEther('0.01'); // about 34 USD probably // TODO normally 10 parseEther('0.1'); // normally 20 | TODO // The minimum amount of USD that a borrower must have borrowed to be considered for liquidation.
+export const MIN_USD_BORROW = parseEther(process.env.MIN_USD_BORROW ?? '0.01'); // The minimum amount of USD that a borrower must have borrowed to be considered for liquidation.
 export const REPORT_FULFILLMENT_DELAY_MS = 300_000;
 export const MAX_COLLATERAL_REPAY_PERCENTAGE = 95; // We leave some buffer to be sure there is enough collateral after the interest accrual.
 

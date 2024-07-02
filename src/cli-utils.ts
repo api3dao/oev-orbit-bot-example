@@ -90,6 +90,13 @@ const main = async () => {
 
       return;
     }
+    case 'cancel-withdraw-oev': {
+      const initiateWithdrawTx = await oevAuctionHouse.connect(wallet.connect(oevNetworkProvider)).cancelWithdrawal();
+      await initiateWithdrawTx.wait(1);
+
+      console.log(`Withdrawal cancelled: ${initiateWithdrawTx.hash}`);
+      return;
+    }
     case 'initiate-withdraw-oev': {
       const initiateWithdrawTx = await oevAuctionHouse.connect(wallet.connect(oevNetworkProvider)).initiateWithdrawal();
 
@@ -107,12 +114,12 @@ const main = async () => {
 
       const earliestWithdrawalResultLog = initiateWithdrawalLogs[0]!.data;
       const earliestWithdrawalResultDecodedResult = oevAuctionHouse.interface.decodeEventLog(
-        'InitiateWithdrawal',
+        'InitiatedWithdrawal',
         earliestWithdrawalResultLog
       );
 
       console.log(
-        `Earliest withdrawal at ${earliestWithdrawalResultDecodedResult[0]} or ${new Date(Number(earliestWithdrawalResultDecodedResult[0] * 1000n))}`
+        `Earliest withdrawal at ${earliestWithdrawalResultDecodedResult[0][1]} or ${new Date(Number(earliestWithdrawalResultDecodedResult[1] * 1000n))}`
       );
 
       return;

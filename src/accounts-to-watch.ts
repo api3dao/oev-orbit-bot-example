@@ -15,14 +15,8 @@ import {
   MIN_USD_BORROW,
   MAX_BORROWER_DETAILS_MULTICALL,
 } from './commons';
-import {
-  contractAddresses,
-  deploymentBlockNumbers,
-  MIN_ETH_BORROW,
-  oTokenAddresses,
-  SAFE_COLLATERAL_BUFFER_PERCENT,
-} from './constants';
-import { OEtherV2Interface, orbitSpaceStationInterface, priceOracleInterface } from './interfaces';
+import { contractAddresses, oTokenAddresses } from './constants';
+import { OEtherV2Interface, orbitSpaceStationInterface } from './interfaces';
 
 /**
  * Iterate through log events on Orbit to determine accounts worth watching.
