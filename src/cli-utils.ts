@@ -1,11 +1,11 @@
 import * as fs from 'node:fs';
 import { join } from 'node:path';
 
-import { Contract, ContractFactory, formatEther, Interface, parseEther } from 'ethers';
+import { Contract, ContractFactory, ethers, formatEther, Interface, parseEther } from 'ethers';
 
-import { blastProvider, oEtherV2, oUsdb, wallet } from './commons';
+import { blastProvider, oEtherV2, oevAuctionHouse, oevNetworkProvider, oUsdb, wallet } from './commons';
 import { getOrbitLiquidatorArtifact, OrbitLiquidatorInterface } from './interfaces';
-import { contractAddresses } from './constants';
+import { contractAddresses, oevAuctioneerConfig } from './constants';
 
 const OrbitLiquidatorAddress = contractAddresses.OrbitLiquidator;
 
@@ -73,6 +73,50 @@ const main = async () => {
 
       return;
     }
+    case 'deposit-oev': {
+      const ethToSend = process.argv[3]!;
+      if (!ethToSend) throw new Error('ETH amount to deposit is required (e.g. 0.05)');
+      console.info('Depositing ETH to OEV AuctionHouse contract', {
+        address: await oevAuctionHouse.getAddress(),
+        ethToSend: parseEther(ethToSend),
+      });
+
+      const depositTx = await oevAuctionHouse.connect(wallet.connect(oevNetworkProvider)).deposit({
+        value: parseEther(ethToSend),
+      });
+
+      await depositTx.wait(1);
+      console.info('Deposited', { txHash: depositTx.hash });
+
+      return;
+    }
+    case 'initiate-withdraw-oev': {
+      const initiateWithdrawTx = await oevAuctionHouse.connect(wallet.connect(oevNetworkProvider)).initiateWithdrawal();
+
+      const fromBlock = await oevNetworkProvider.getBlockNumber();
+      console.info('Withdraw initiated - waiting for tx to be mined', { txHash: initiateWithdrawTx.hash });
+      const result = await initiateWithdrawTx.wait(1);
+      const toBlock = await oevNetworkProvider.getBlockNumber();
+
+      const initiateWithdrawalLogs = await oevNetworkProvider.getLogs({
+        fromBlock,
+        toBlock,
+        address: oevAuctionHouse.getAddress(),
+        topics: [[oevAuctionHouse.filters.InitiatedWithdrawal().fragment.topicHash]],
+      });
+
+      const earliestWithdrawalResultLog = initiateWithdrawalLogs[0]!.data;
+      const earliestWithdrawalResultDecodedResult = oevAuctionHouse.interface.decodeEventLog(
+        'InitiateWithdrawal',
+        earliestWithdrawalResultLog
+      );
+
+      console.log(
+        `Earliest withdrawal at ${earliestWithdrawalResultDecodedResult[0]} or ${new Date(Number(earliestWithdrawalResultDecodedResult[0] * 1000n))}`
+      );
+
+      return;
+    }
     case 'withdraw-all-eth': {
       console.info('Withdrawing all ETH from OrbitLiquidator contract', {
         address: await OrbitLiquidator.getAddress(),
@@ -83,6 +127,7 @@ const main = async () => {
       console.info('Withdrew', { txHash: withdrawalTx.hash });
       return;
     }
+
     case 'withdraw-all-tokens':
     case 'withdraw-all-token': {
       const tokenAddress = process.argv[3]!;

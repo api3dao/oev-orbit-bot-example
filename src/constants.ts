@@ -2,14 +2,15 @@ import { parseEther } from 'ethers';
 
 export const SAFE_COLLATERAL_BUFFER_PERCENT = 3;
 
+export const SIMULATION_PERCENTAGE = 0.1;
+
 export const contractAddresses = {
   // Blast network
   api3OevEthUsdProxy: '0xCBE95Ba8fF327a1E3e6Bdade4C598277450145B3',
   api3ServerV1: '0x709944a48cAf83535e43471680fDA4905FB3920a',
   externalMulticallSimulator: '0xb45fe2838F47DCCEe00F635785EAF0c723F742E5',
   multicall3: '0xcA11bde05977b3631167028862bE2a173976CA11',
-  OrbitLiquidator: process.env.ETHER_LIQUIDATOR_ADDRESS ?? '0x',
-  // OrbitLiquidator: '0x66E9CA29cD757E3c7C063163deCDB04feb1fC2bC',
+  OrbitLiquidator: process.env.ETHER_LIQUIDATOR_ADDRESS!,
   orbitSpaceStation: '0x1E18C3cb491D908241D0db14b081B51be7B6e652',
 
   // OEV network
@@ -29,7 +30,7 @@ export const oTokenAddresses = {
 
 export const MIN_ETH_BORROW = parseEther('0.01');
 
-export const MIN_LIQUIDATION_PROFIT_USD = parseEther('0.01'); // NOTE: USD has 18 decimals, same as ETH.
+export const MIN_LIQUIDATION_PROFIT_USD = parseEther(process.env.MIN_LIQUIDATION_PROFIT_USD ?? '0.01'); // NOTE: USD has 18 decimals, same as ETH.
 
 export const BID_CONDITION = {
   LTE: 0n,

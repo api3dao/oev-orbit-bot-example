@@ -1,6 +1,6 @@
 import type { AwardedBidEvent } from '@api3/contracts/dist/typechain-types/api3-server-v1/OevAuctionHouse';
 import type { TypedEventLog } from '@api3/contracts/dist/typechain-types/common';
-import { Contract, ethers, formatEther } from 'ethers';
+import { Contract, ethers, formatEther, parseEther } from 'ethers';
 import { chunk, range, uniq } from 'lodash';
 
 import { getAccountsToWatch } from './accounts-to-watch';
@@ -49,7 +49,23 @@ import {
   OEV_BID_VALIDITY,
   oevAuctioneerConfig,
   oTokenAddresses,
+  SIMULATION_PERCENTAGE,
 } from './constants';
+
+const expediteBid = async (bidId: string, encodedBidDetails: string) => {
+  try {
+    console.debug('Expediting bid', { bidId });
+
+    const tx = await oevAuctionHouse
+      .connect(wallet.connect(oevNetworkProvider))
+      .expediteBidExpirationMaximally(oevAuctioneerConfig.bidTopic, ethers.keccak256(encodedBidDetails));
+    await tx.wait(1);
+
+    console.info('Expedited bid', { bidId, txHash: tx.hash });
+  } catch (e) {
+    console.error('Attempt to expedite bid failed', { bidId, e });
+  }
+};
 
 /**
  * The bot's main coordinator function.
@@ -71,11 +87,18 @@ import {
  * - Persist accounts to watch loop: periodically commit the accounts to watch store to disk
  */
 export const runBot = async () => {
-  const { logs, lastFetchedBlock } = await getInitialOevNetworkLogs();
-  storage.oevNetworkData = {
-    lastFetchedBlock,
-    logs,
-  };
+  // If the development.ts file is present, import it
+  void import('./development');
+
+  const sleepTime = process.env.MAIN_LOOP_SLEEP_TIME ? parseInt(process.env.MAIN_LOOP_SLEEP_TIME, 10) : 5_000;
+
+  if (storage.oevNetworkData.logs.length === 0) {
+    const { logs, lastFetchedBlock } = await getInitialOevNetworkLogs();
+    storage.oevNetworkData = {
+      lastFetchedBlock,
+      logs,
+    };
+  }
 
   while (true) {
     const startBlock = storage.oevNetworkData.lastFetchedBlock + 1;
@@ -93,7 +116,7 @@ export const runBot = async () => {
       storage.oevNetworkData.logs = pruneLogs(storage.oevNetworkData.logs);
     }
 
-    if (storage.targetChainData.lastBlock === targetChainDataInitialBlock) {
+    if (storage.currentlyActiveBid && storage.targetChainData.lastBlock === targetChainDataInitialBlock) {
       await expediteActiveBids(); // NOTE: We want to expedite the active bids, so that the bot can start fresh.
     }
 
@@ -107,13 +130,16 @@ export const runBot = async () => {
     try {
       const { currentlyActiveBid } = storage;
 
-      if (currentlyActiveBid) return attemptLiquidation();
-      await findOevLiquidation();
+      if (currentlyActiveBid) {
+        await attemptLiquidation();
+      } else {
+        await findOevLiquidation();
+      }
     } catch (e) {
       console.error(`Encountered an error while attempting a liquidation: `, e);
     }
 
-    await sleep(5000);
+    await sleep(sleepTime);
   }
 };
 
@@ -177,7 +203,7 @@ const decodeOevNetworkLog = (log: ethers.LogDescription): OevNetworkLog => {
   }
 };
 
-const getInitialOevNetworkLogs = async () => {
+export const getInitialOevNetworkLogs = async () => {
   const allLogs: OevNetworkLog[] = [];
   let latestBlock = await oevNetworkProvider.getBlockNumber();
   const networkLatestBlock = latestBlock;
@@ -463,7 +489,7 @@ const findOevLiquidation = async () => {
   // This means that the OEV bot will be on timer to get its bid awarded and to capture the liquidation opportunity.
   // Higher percentage gives more time the bot, but the downside is the accuracy of profit calculation, because it
   // assumes the collateral price remains the same from the bid time to the liquidation capture.
-  const transmutationValue = getPercentageValue(currentEthUsdPrice, 100.2);
+  const transmutationValue = getPercentageValue(currentEthUsdPrice, 100 + SIMULATION_PERCENTAGE);
   const ethUsdDapiName = ethers.encodeBytes32String('ETH/USD');
   const dapiTransmutationCalls = await getDapiTransmutationCalls(
     contractAddresses.api3ServerV1,
@@ -526,7 +552,7 @@ const findOevLiquidation = async () => {
       ...dapiTransmutationCalls,
       {
         target: contractAddresses.OrbitLiquidator,
-        data: OrbitLiquidator.interface.encodeFunctionData('getAccountDetails', [borrower, oTokenAddresses.oEtherV2]),
+        data: OrbitLiquidator.interface.encodeFunctionData('getAccountDetails', [borrower]),
       },
     ];
     const returndata = await simulateTransmutationMulticall(externalMulticallSimulator, transmutationCalls);
@@ -548,11 +574,14 @@ const findOevLiquidation = async () => {
       acc.tokenBalance > curr.tokenBalance ? acc : curr
     );
 
-    const OrbitLiquidatorBalance = await blastProvider.getBalance(contractAddresses.OrbitLiquidator);
+    const orbitLiquidatorBalance = await blastProvider.getBalance(contractAddresses.OrbitLiquidator);
     const maxBorrowRepay = min(
-      (ethBorrowAsset.borrowBalance * (closeFactor as bigint)) / 10n ** 18n,
-      OrbitLiquidatorBalance,
-      getPercentageValue(maxTokenBalanceAsset.tokenBalance, MAX_COLLATERAL_REPAY_PERCENTAGE) // NOTE: We leave some buffer to be sure there is enough collateral after the interest accrual.
+      (((ethBorrowAsset.borrowBalance * 10n ** 18n) / transmutationValue) * closeFactor) / 10n ** 18n,
+      orbitLiquidatorBalance,
+      getPercentageValue(
+        (maxTokenBalanceAsset.tokenBalance * 10n ** 18n) / transmutationValue,
+        MAX_COLLATERAL_REPAY_PERCENTAGE
+      )
     );
     console.debug('Potential liquidation', {
       borrower,
@@ -578,12 +607,12 @@ const findOevLiquidation = async () => {
     ];
     const liquidateResult = await simulateTransmutationMulticall(externalMulticallSimulator, liquidateBorrowCalls);
 
-    const liquidateReturndata = liquidateResult.data.at(-1);
-    const [profitEth, profitUsd] = OrbitLiquidator.interface.decodeFunctionResult('liquidate', liquidateReturndata);
+    console.log(liquidateResult);
+    const liquidateReturndata = liquidateResult.at(-1);
+    const [profitUsd] = OrbitLiquidator.interface.decodeFunctionResult('liquidate', liquidateReturndata);
     if (profitUsd <= MIN_LIQUIDATION_PROFIT_USD) {
       console.info('Liquidation possible, but profit is too low', {
         borrower,
-        eth: formatEther(profitEth),
         usd: formatEther(profitUsd),
       });
       continue;
@@ -591,17 +620,15 @@ const findOevLiquidation = async () => {
     console.info('Possible liquidation profit', {
       borrower,
       maxBorrowRepay: formatEther(maxBorrowRepay),
-      eth: formatEther(profitEth),
       usd: formatEther(profitUsd),
     });
 
-    if (!bestLiquidation || profitEth > bestLiquidation.profitEth) {
+    if (!bestLiquidation || profitUsd > bestLiquidation.profitUsd) {
       bestLiquidation = {
         borrowTokenAddress: ethBorrowAsset.oToken,
         borrower,
         collateralTokenAddress: maxTokenBalanceAsset.oToken,
         maxBorrowRepay,
-        profitEth,
         profitUsd,
       };
     }
@@ -613,7 +640,9 @@ const findOevLiquidation = async () => {
   }
 
   // Place a bid on the OEV network.
-  const bidAmount = getPercentageValue(bestLiquidation.profitEth, 20); // NOTE: This assumes the wallet is going to have enough deposit to cover the bid.
+  const bidAmount =
+    parseEther('0.0000000000001') ??
+    getPercentageValue((bestLiquidation.profitUsd * 10n ** 18n) / transmutationValue, SIMULATION_PERCENTAGE); // NOTE: This assumes the wallet is going to have enough deposit to cover the bid.
   const nonce = ethers.hexlify(ethers.randomBytes(32));
   const bidDetails: BidDetails = {
     oevProxyAddress: contractAddresses.api3OevEthUsdProxy,
@@ -629,7 +658,6 @@ const findOevLiquidation = async () => {
   console.info('Placing bid', {
     ...bestLiquidation,
     maxBorrowRepay: formatEther(bestLiquidation.maxBorrowRepay),
-    profitEth: formatEther(bestLiquidation.profitEth),
     profitUsd: formatEther(bestLiquidation.profitUsd),
     bidAmount: formatEther(bidAmount),
   });
