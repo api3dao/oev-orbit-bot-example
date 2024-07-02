@@ -28,9 +28,7 @@ export const oTokenAddresses = {
   ofwWETH: '0xB51b76C73fB24f472E0dd63Bb8195bD2170Bc65d',
 };
 
-export const MIN_ETH_BORROW = parseEther('0.01');
-
-export const MIN_LIQUIDATION_PROFIT_USD = parseEther(process.env.MIN_LIQUIDATION_PROFIT_USD ?? '0.01'); // NOTE: USD has 18 decimals, same as ETH.
+export const MIN_LIQUIDATION_PROFIT_USD = parseEther(process.env.MIN_LIQUIDATION_PROFIT_USD ?? '1.1'); // NOTE: USD has 18 decimals, same as ETH.
 
 export const BID_CONDITION = {
   LTE: 0n,

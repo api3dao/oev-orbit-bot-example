@@ -134,7 +134,6 @@ const main = async () => {
       console.info('Withdrew', { txHash: withdrawalTx.hash });
       return;
     }
-
     case 'withdraw-all-tokens':
     case 'withdraw-all-token': {
       const tokenAddress = process.argv[3]!;

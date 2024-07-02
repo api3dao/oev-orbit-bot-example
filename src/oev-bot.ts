@@ -185,6 +185,10 @@ const decodeOevNetworkLog = (log: ethers.LogDescription): OevNetworkLog => {
   }
 };
 
+/**
+ * Collects and processes OEV network logs, starting at the `latest` block in the chain and working backwards until it
+ * hits the oldest allowable block.
+ */
 export const getInitialOevNetworkLogs = async () => {
   const allLogs: OevNetworkLog[] = [];
   let latestBlock = await oevNetworkProvider.getBlockNumber();
