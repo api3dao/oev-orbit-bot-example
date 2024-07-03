@@ -42,7 +42,7 @@ export const getAccountsToWatch = async (startBlockNumber?: number | null) => {
     // For every borrower we check each of their accounts (from getAccountDetails) and calculate the potential
     // liquidation profitability. Accounts that are potentially profitable to liquidate are added to accountsToWatch
     const accountsToWatchBatch = await checkLiquidationPotentialOfAccounts(accountDetails, accountBatch);
-    accountsToWatch.concat(accountsToWatchBatch);
+    accountsToWatch.push(...accountsToWatchBatch);
   }
   console.info(`Fetched details of ${accountsToWatch.length} accounts with borrowed ETH`);
 

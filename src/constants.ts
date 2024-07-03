@@ -1,6 +1,8 @@
 import { parseEther } from 'ethers';
 
-export const SAFE_COLLATERAL_BUFFER_PERCENT = 3;
+// The percentage to use when simulating a transmutation.
+// For example, 0.1 here would test if liquidations are profitable above 100.1% of the current data feed value
+export const SIMULATION_PERCENTAGE = 0.5;
 
 export const contractAddresses = {
   // Blast network
@@ -8,8 +10,7 @@ export const contractAddresses = {
   api3ServerV1: '0x709944a48cAf83535e43471680fDA4905FB3920a',
   externalMulticallSimulator: '0xb45fe2838F47DCCEe00F635785EAF0c723F742E5',
   multicall3: '0xcA11bde05977b3631167028862bE2a173976CA11',
-  OrbitLiquidator: process.env.ETHER_LIQUIDATOR_ADDRESS ?? '0x',
-  // OrbitLiquidator: '0x66E9CA29cD757E3c7C063163deCDB04feb1fC2bC',
+  OrbitLiquidator: process.env.ETHER_LIQUIDATOR_ADDRESS!,
   orbitSpaceStation: '0x1E18C3cb491D908241D0db14b081B51be7B6e652',
 
   // OEV network
@@ -27,9 +28,7 @@ export const oTokenAddresses = {
   ofwWETH: '0xB51b76C73fB24f472E0dd63Bb8195bD2170Bc65d',
 };
 
-export const MIN_ETH_BORROW = parseEther('0.01');
-
-export const MIN_LIQUIDATION_PROFIT_USD = parseEther('0.01'); // NOTE: USD has 18 decimals, same as ETH.
+export const MIN_LIQUIDATION_PROFIT_USD = parseEther(process.env.MIN_LIQUIDATION_PROFIT_USD ?? '1.1'); // NOTE: USD has 18 decimals, same as ETH.
 
 export const BID_CONDITION = {
   LTE: 0n,

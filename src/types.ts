@@ -27,7 +27,6 @@ export interface LiquidationParameters {
   borrower: string;
   collateralTokenAddress: string;
   maxBorrowRepay: bigint;
-  profitEth: bigint;
   profitUsd: bigint;
 }
 
