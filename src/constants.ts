@@ -1,8 +1,8 @@
-import { parseEther } from 'ethers';
+import { ethers, parseEther } from 'ethers';
 
 // The percentage to use when simulating a transmutation.
 // For example, 0.1 here would test if liquidations are profitable above 100.1% of the current data feed value
-export const SIMULATION_PERCENTAGE = 0.5;
+export const SIMULATION_PERCENTAGE = 0.2;
 
 export const contractAddresses = {
   // Blast network
@@ -10,7 +10,7 @@ export const contractAddresses = {
   api3ServerV1: '0x709944a48cAf83535e43471680fDA4905FB3920a',
   externalMulticallSimulator: '0xb45fe2838F47DCCEe00F635785EAF0c723F742E5',
   multicall3: '0xcA11bde05977b3631167028862bE2a173976CA11',
-  OrbitLiquidator: process.env.ETHER_LIQUIDATOR_ADDRESS!,
+  orbitLiquidator: process.env.ORBIT_LIQUIDATOR_ADDRESS || ethers.ZeroAddress,
   orbitSpaceStation: '0x1E18C3cb491D908241D0db14b081B51be7B6e652',
 
   // OEV network
