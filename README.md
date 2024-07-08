@@ -1,6 +1,6 @@
 # OEV Orbit Bot Example
 
-This repository contains an example OEV Searcher bot implementation targeting [Orbit Lending](https://orbitlending.io/).
+This repository contains an example OEV searcher bot implementation targeting [Orbit Lending](https://orbitlending.io/).
 To understand how OEV works, visit
 [the OEV documentation](https://oev-docs--pr12-new-oev-docs-0y2wddya.web.app/reference/oev-network/overview/oev-network.html).
 
@@ -8,11 +8,11 @@ Before running this application, be sure to read and understand the code.
 
 ## Process Overview
 
-The OEV Bot follows this flow to extract OEV from Orbit Lending:
+The OEV bot follows this flow to extract OEV from Orbit Lending:
 
 1. **Initialisation**
 
-- Get log events from the target chain and build a list of accounts to watch for possible liquidation opportunities
+- Get log events from the Blast chain and build a list of accounts to watch for possible liquidation opportunities
 - Get log events from the OEV Network to determine awarded/live/lost bids
 
 2. **Main Loop**
@@ -28,7 +28,7 @@ Given a list of accounts to watch, the app does the following: (Refer to `findOe
 
 - Simulate liquidation potential by [transmuting](#transmutation) the oracle's value for a feed
   - Refer to the [Transmutation section of this README](#transmutation) for more information.
-  - Find Orbit's Price Oracle: `orbitSpaceStation.oracle`
+  - Find Orbit's Price Oracle: `orbitSpaceStation.oracle()`
     - Read the current value of the oracle for the target feed: `priceOracle.getUnderlyingPrice(oEtherV2)`
   - Apply a transmutation value to the read price: `getPercentageValue(currentEthUsdPrice, 100.2)`
   - Create a set of calls that can be used to transmute the value of the oracle temporarily
@@ -58,17 +58,18 @@ Given a list of accounts to watch, the app does the following: (Refer to `findOe
 
 - Store the active bid's parameters
 
-### Attempt to Exploit the OEV Liquidation Opportunity
+### Attempt to Capture the OEV Liquidation Opportunity
 
 Refer to `attemptLiquidation()`
 
 - [Listen for the award, expiry or loss of the active bid](https://oev-docs--pr12-new-oev-docs-0y2wddya.web.app/reference/oev-network/searchers/submit-bids.html#checking-bid-status-and-listening-for-awarded-bids)
-- If the bid is awarded, encode a multicall call set containing
-  - Call #1: Call to the API3 Server with the awarded bid details as call data
+- If the bid is awarded, encode a multicall transaction containing:
+  - Call #1: Call to the API3 Server with the awarded bid details as call data with value corresponding to the bid
+    amount
   - Call #2: Call the Orbit Ether Liquidator contract with the liquidation parameters
 - Simulate the liquidation multicall and determine the profitability - bail if the profit is below the minimum
 - [Execute the liquidation transaction](https://oev-docs--pr12-new-oev-docs-0y2wddya.web.app/reference/oev-network/searchers/submit-bids.html#performing-the-oracle-update-using-the-awarded-bid)
-- Report the fulfilment on the OEV Network #TODO there's no page for this in the OEV docs
+- Report the fulfillment on the OEV Network #TODO there's no page for this in the OEV docs
   https://github.com/api3dao/oev-docs/pull/12#issuecomment-2186092191
 
 ### Transmutation
@@ -77,11 +78,11 @@ In order to bid on an OEV update an application will need to determine
 [the bid's parameters](https://oev-docs--pr12-new-oev-docs-0y2wddya.web.app/reference/oev-network/searchers/submit-bids.html#arguments-for-placebid),
 and in particular:
 
-- The value of the bid (what will be paid for the bid in the target chain's native token)
+- The value of the bid (what will be paid for the bid in the Blast chain's native token)
 - The conditions under which the bid will be considered (less-than or greater-than a specific dAPI value)
 
-Determining these values would generally require re-implementing the mathematical logic of the dApp being targeted,
-something which is often very onerous. To make integrating into a target dApp easier, API3 has built a contract that
+Determining these values would generally require re-implementing the business logic of the dApp being targeted,
+something which is often very onerous. To make target dApp integration easier, API3 has built a contract that
 facilitates the "transmutation" of a dAPI (from the concept of transmuting silver to gold).
 
 **Purpose of Transmutation:**
@@ -147,19 +148,26 @@ Copy `.env.example` to `.env` and populate it
 cp .env.example .env
 ```
 
-3. **Ensure Wallet is Funded:**
+3. **Generate Wallet for the bot**
 
-Make sure the account on Blast associated with your `MNEMONIC` has sufficient funds on the OEV Network and Blast. A new
-mnemonic can be generated using the
+A new mnemonic can be generated using the
 [API3 Airnode CLI](https://docs.api3.org/reference/airnode/latest/packages/admin-cli.html#generate-mnemonic) if required
 
 ```sh
 pnpm dlx @api3/airnode-admin generate-mnemonic
 ```
 
-3. **Deploy and Fund the OrbitLiquidator Contract (First-time setup):**
+4. **Fund the wallet with Blast ETH**
+
+The wallet will be capturing liquidations on the Blast network, so it needs to have some small ETH balance. The
+liquidations happen through a helper contract, which also requires some ETH deposit.
+
+5. **Deploy and Fund the OrbitLiquidator Contract (First-time setup)**
 
 ```sh
+# Install the dependencies
+pnpm i
+
 # Build the project and contract
 pnpm build
 
@@ -170,11 +178,25 @@ pnpm orbit-bot:cli-utils deploy
 4. **Fund the OrbitLiquidator contract**
 
 ```sh
-# REQUIRED: Update `.env` with the `ETHER_LIQUIDATOR_ADDRESS` with the output of the deploy command
-pnpm orbit-bot:cli-utils deposit 1 # for 1 ETH
+pnpm orbit-bot:cli-utils deposit 0.01 # for 0.01 ETH
 ```
 
-5. **Run the Bot:**
+5. **Bridge funds to the OEV network**
+
+The wallet will be interacting with the
+[OEV network](https://oev-docs--pr12-new-oev-docs-0y2wddya.web.app/reference/oev-network/overview/oev-network.html) for
+which it needs to have an ETH balance. You can use the official
+[OEV bridge](https://oev-docs--pr12-new-oev-docs-0y2wddya.web.app/reference/oev-network/bridge.html) to bridge funds
+from the Ethereum network to the OEV network.
+
+6. **Deposit funds to the OevAuctionHouse**
+
+You can use the
+[OEV network explorer](https://oev.explorer.api3.org/address/0x34f13A5C0AD750d212267bcBc230c87AEFD35CC5?tab=write_contract)
+to call `deposit` with your wallet. Be sure to leave some ETH in the wallet as well to cover gas costs for the OEV
+network transactions.
+
+7. **Run the Bot**
 
 ```sh
 pnpm orbit-bot

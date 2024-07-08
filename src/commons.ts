@@ -164,7 +164,7 @@ export const externalMulticallSimulator = new Contract(
   externalMulticallSimulatorInterface,
   blastProvider
 );
-export const OrbitLiquidator = new Contract(contractAddresses.OrbitLiquidator, OrbitLiquidatorInterface, blastProvider);
+export const OrbitLiquidator = new Contract(contractAddresses.orbitLiquidator, OrbitLiquidatorInterface, blastProvider);
 export const api3ServerV1 = Api3ServerV1Factory.connect(contractAddresses.api3ServerV1, blastProvider);
 
 export const getPercentageValue = (value: bigint, percent: number) => {

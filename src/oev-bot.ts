@@ -56,7 +56,7 @@ import {
  * The bot's main coordinator function.
  *
  * The function starts with initialisation calls:
- * - Initialise the target chain related data (acquires accounts to watch)
+ * - Initialise the Blast chain related data (acquires accounts to watch)
  *   - Refer to getAccountsToWatch() and getAccountsFromFile()
  * - Initialise the OEV Network chain data
  *   - Fetches OEV Network logs - this allows the app to determine won/lost bids
@@ -365,7 +365,7 @@ const attemptLiquidation = async () => {
       callData: awardDetails,
     },
     {
-      target: contractAddresses.OrbitLiquidator,
+      target: contractAddresses.orbitLiquidator,
       allowFailure: false,
       value: 0,
       callData: OrbitLiquidator.interface.encodeFunctionData('liquidate', [
@@ -434,13 +434,13 @@ const findOevLiquidation = async () => {
     usdbInOUsdb: formatEther(await oUsdb.balanceOfUnderlying.staticCall(wallet.address)),
   });
   console.info('OrbitLiquidator ETH balance', {
-    eth: formatEther(await blastProvider.getBalance(contractAddresses.OrbitLiquidator)),
-    oEth: formatEther(await oEtherV2.balanceOf!(contractAddresses.OrbitLiquidator)),
-    ethInOEth: formatEther(await oEtherV2.balanceOfUnderlying!.staticCall(contractAddresses.OrbitLiquidator)),
+    eth: formatEther(await blastProvider.getBalance(contractAddresses.orbitLiquidator)),
+    oEth: formatEther(await oEtherV2.balanceOf!(contractAddresses.orbitLiquidator)),
+    ethInOEth: formatEther(await oEtherV2.balanceOfUnderlying!.staticCall(contractAddresses.orbitLiquidator)),
   });
   console.info('OrbitLiquidator USDB balance', {
-    oUsdb: formatEther(await oUsdb.balanceOf(contractAddresses.OrbitLiquidator)),
-    usdbInOUsdb: formatEther(await oUsdb.balanceOfUnderlying.staticCall(contractAddresses.OrbitLiquidator)),
+    oUsdb: formatEther(await oUsdb.balanceOf(contractAddresses.orbitLiquidator)),
+    usdbInOUsdb: formatEther(await oUsdb.balanceOfUnderlying.staticCall(contractAddresses.orbitLiquidator)),
   });
 
   // Print out the close factor. Currently, the value is set to 0.5, so we can only liquidate 50% of the borrowed asset.
@@ -465,7 +465,7 @@ const findOevLiquidation = async () => {
   );
 
   const { targetChainData } = storage;
-  if (!targetChainData) throw new Error('Target chain data not initialized.');
+  if (!targetChainData) throw new Error('Blast chain data not initialized.');
   const { borrowers } = targetChainData;
   const getAccountLiquidityCalls = borrowers.map((borrower) => {
     return {
@@ -518,7 +518,7 @@ const findOevLiquidation = async () => {
     const transmutationCalls = [
       ...dapiTransmutationCalls,
       {
-        target: contractAddresses.OrbitLiquidator,
+        target: contractAddresses.orbitLiquidator,
         data: OrbitLiquidator.interface.encodeFunctionData('getAccountDetails', [borrower]),
       },
     ];
@@ -541,7 +541,7 @@ const findOevLiquidation = async () => {
       acc.tokenBalance > curr.tokenBalance ? acc : curr
     );
 
-    const orbitLiquidatorBalance = await blastProvider.getBalance(contractAddresses.OrbitLiquidator);
+    const orbitLiquidatorBalance = await blastProvider.getBalance(contractAddresses.orbitLiquidator);
     const maxBorrowRepay = min(
       (((ethBorrowAsset.borrowBalance * 10n ** 18n) / transmutationValue) * closeFactor) / 10n ** 18n,
       orbitLiquidatorBalance,
@@ -563,7 +563,7 @@ const findOevLiquidation = async () => {
     const liquidateBorrowCalls = [
       ...dapiTransmutationCalls,
       {
-        target: contractAddresses.OrbitLiquidator,
+        target: contractAddresses.orbitLiquidator,
         data: OrbitLiquidator.interface.encodeFunctionData('liquidate', [
           ethBorrowAsset.oToken,
           borrower,

@@ -88,7 +88,7 @@ export const getBorrowersFromLogs = async (startBlockNumber?: number | null) => 
 export const getAccountDetails = async (borrowerBatch: string[]) => {
   console.info('Fetching accounts with borrowed ETH', { count: borrowerBatch.length });
   const getAccountDetailsCalls = borrowerBatch.map((borrower) => ({
-    target: contractAddresses.OrbitLiquidator,
+    target: contractAddresses.orbitLiquidator,
     callData: OrbitLiquidator.interface.encodeFunctionData('getAccountDetails', [borrower]),
   }));
   const [_blockNumber1, getAccountDetailsEncoded] = await multicall3.aggregate!.staticCall(getAccountDetailsCalls);
@@ -122,7 +122,7 @@ export const checkLiquidationPotentialOfAccounts = async (
 
   // Now we determine the profitability per borrower
   for (let i = 0; i < accountDetails.length; i++) {
-    const [oTokens, borrowBalances, tokenBalances, [shortfallValue, liquidityValue]] = accountDetails[i]!;
+    const [oTokens, borrowBalances, tokenBalances, [liquidityValue, shortfallValue]] = accountDetails[i]!;
     const borrower = borrowers[i]!;
     let usdBorrowBalance = 0n;
 
@@ -154,6 +154,7 @@ export const checkLiquidationPotentialOfAccounts = async (
       borrower,
       usdBorrowBalance: formatEther(usdBorrowBalance),
       liquidity: formatEther(liquidityValue),
+      shortfall: formatEther(shortfallValue),
     });
     accountsToWatch.push(borrower);
     await sleep(MIN_RPC_DELAY_MS);
