@@ -63,7 +63,7 @@ Given a list of accounts to watch, the app does the following: (Refer to `findOe
 Refer to `attemptLiquidation()`
 
 - [Listen for the award, expiry or loss of the active bid](https://oev-docs--pr12-new-oev-docs-0y2wddya.web.app/reference/oev-network/searchers/submit-bids.html#checking-bid-status-and-listening-for-awarded-bids)
-- If the bid is awarded, encode a multicall transaction containing
+- If the bid is awarded, encode a multicall transaction containing:
   - Call #1: Call to the API3 Server with the awarded bid details as call data with value corresponding to the bid
     amount
   - Call #2: Call the Orbit Ether Liquidator contract with the liquidation parameters
@@ -148,7 +148,7 @@ Copy `.env.example` to `.env` and populate it
 cp .env.example .env
 ```
 
-3. **Generate Wallet for the bot:**
+3. **Generate Wallet for the bot**
 
 A new mnemonic can be generated using the
 [API3 Airnode CLI](https://docs.api3.org/reference/airnode/latest/packages/admin-cli.html#generate-mnemonic) if required
@@ -162,7 +162,7 @@ pnpm dlx @api3/airnode-admin generate-mnemonic
 The wallet will be capturing liquidations on the Blast network, so it needs to have some small ETH balance. The
 liquidations happen through a helper contract, which also requires some ETH deposit.
 
-5. **Deploy and Fund the OrbitLiquidator Contract (First-time setup):**
+5. **Deploy and Fund the OrbitLiquidator Contract (First-time setup)**
 
 ```sh
 # Install the dependencies
@@ -185,7 +185,7 @@ pnpm orbit-bot:cli-utils deposit 0.01 # for 0.01 ETH
 
 The wallet will be interacting with the
 [OEV network](https://oev-docs--pr12-new-oev-docs-0y2wddya.web.app/reference/oev-network/overview/oev-network.html) for
-which it needs to have ETH balance. You can use the official
+which it needs to have an ETH balance. You can use the official
 [OEV bridge](https://oev-docs--pr12-new-oev-docs-0y2wddya.web.app/reference/oev-network/bridge.html) to bridge funds
 from the Ethereum network to the OEV network.
 
@@ -193,10 +193,10 @@ from the Ethereum network to the OEV network.
 
 You can use the
 [OEV network explorer](https://oev.explorer.api3.org/address/0x34f13A5C0AD750d212267bcBc230c87AEFD35CC5?tab=write_contract)
-to call `deposit` with your wallet. Be sure to leave some ETH in the wallet as well to cover gas costs for OEV network
-transactions.
+to call `deposit` with your wallet. Be sure to leave some ETH in the wallet as well to cover gas costs for the OEV
+network transactions.
 
-7. **Run the Bot:**
+7. **Run the Bot**
 
 ```sh
 pnpm orbit-bot
