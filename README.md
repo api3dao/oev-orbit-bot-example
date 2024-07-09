@@ -1,8 +1,7 @@
 # OEV Orbit Bot Example
 
-This repository contains an example OEV searcher bot implementation targeting [Orbit Lending](https://orbitlending.io/).
-To understand how OEV works, visit
-[the OEV documentation](https://oev-docs--pr12-new-oev-docs-0y2wddya.web.app/reference/oev-network/overview/oev-network.html).
+This repository contains an example OEV Searcher bot implementation targeting [Orbit Lending](https://orbitlending.io/).
+To understand how OEV works, visit [the OEV documentation](https://docs.api3.org/reference/oev-network/).
 
 Before running this application, be sure to read and understand the code.
 
@@ -42,9 +41,9 @@ Given a list of accounts to watch, the app does the following: (Refer to `findOe
 - For all shortfall accounts, re-simulate the transmutation call, simulate a liquidation and determine the profit.
 - Find the most profitable liquidation (using ETH and USD components).
 - At this point, the OEV bidding process begins. To understand the OEV bidding lifecycle refer to
-  [these OEV docs](https://oev-docs--pr12-new-oev-docs-0y2wddya.web.app/reference/oev-network/overview/auction-cycle.html)
+  [these OEV docs](https://docs.api3.org/reference/oev-network/overview/auction-cycle.html)
 
-  - [Bid on an update for the feed](https://oev-docs--pr12-new-oev-docs-0y2wddya.web.app/reference/oev-network/searchers/submit-bids.html#with-an-expiration-timestamp)
+  - [Bid on an update for the feed](https://docs.api3.org/reference/oev-network/searchers/submit-bids.html#with-an-expiration-timestamp)
 
     ```typescript
     const bidDetails: BidDetails = {
@@ -60,22 +59,22 @@ Given a list of accounts to watch, the app does the following: (Refer to `findOe
 
 ### Attempt to Capture the OEV Liquidation Opportunity
 
-Refer to `attemptLiquidation()`
+Refer to `attemptLiquidation()`. See the
+[OEV Network docs](https://docs.api3.org/reference/oev-network/searchers/submit-bids.html) for more information.
 
-- [Listen for the award, expiry or loss of the active bid](https://oev-docs--pr12-new-oev-docs-0y2wddya.web.app/reference/oev-network/searchers/submit-bids.html#checking-bid-status-and-listening-for-awarded-bids)
-- If the bid is awarded, encode a multicall transaction containing:
+- Listen for the award, expiry or loss of the active bid
+- If the bid is awarded, encode a multicall transaction containing
   - Call #1: Call to the API3 Server with the awarded bid details as call data with value corresponding to the bid
     amount
   - Call #2: Call the Orbit Ether Liquidator contract with the liquidation parameters
 - Simulate the liquidation multicall and determine the profitability - bail if the profit is below the minimum
-- [Execute the liquidation transaction](https://oev-docs--pr12-new-oev-docs-0y2wddya.web.app/reference/oev-network/searchers/submit-bids.html#performing-the-oracle-update-using-the-awarded-bid)
-- Report the fulfillment on the OEV Network #TODO there's no page for this in the OEV docs
-  https://github.com/api3dao/oev-docs/pull/12#issuecomment-2186092191
+- Execute the liquidation transaction
+- Report the fulfillment on the OEV Network
 
 ### Transmutation
 
 In order to bid on an OEV update an application will need to determine
-[the bid's parameters](https://oev-docs--pr12-new-oev-docs-0y2wddya.web.app/reference/oev-network/searchers/submit-bids.html#arguments-for-placebid),
+[the bid's parameters](https://docs.api3.org/reference/oev-network/searchers/submit-bids.html#arguments-for-placebidwithexpiration),
 and in particular:
 
 - The value of the bid (what will be paid for the bid in the Blast chain's native token)
@@ -113,7 +112,8 @@ The contract's relevant function is quoted below:
     }
 ```
 
-[//]: # 'TODO add a link to the actual contract'
+See the full `ExternalMulticallSimulator` contract implementation
+[here](https://github.com/api3dao/contracts/blob/7fb41c09953be41f1fab91affb2f75bc31368f65/contracts/utils/ExternalMulticallSimulator.sol).
 
 This function can only be called with a signer address of zero, valid only for non-write operations like a simulated RPC
 contract call. This can be executed via the [eth_call](https://www.quicknode.com/docs/ethereum/eth_call) RPC method. The
@@ -183,13 +183,11 @@ pnpm orbit-bot:cli-utils deposit 0.01 # for 0.01 ETH
 
 5. **Bridge funds to the OEV network**
 
-The wallet will be interacting with the
-[OEV network](https://oev-docs--pr12-new-oev-docs-0y2wddya.web.app/reference/oev-network/overview/oev-network.html) for
-which it needs to have an ETH balance. You can use the official
-[OEV bridge](https://oev-docs--pr12-new-oev-docs-0y2wddya.web.app/reference/oev-network/bridge.html) to bridge funds
-from the Ethereum network to the OEV network.
+The wallet will be interacting with the OEV network for which it needs to have an ETH balance. You can use the official
+[OEV bridge](https://docs.api3.org/reference/oev-network/overview/bridge-oev-network.html) to bridge funds from the
+Ethereum network to the OEV network.
 
-6. **Deposit funds to the OevAuctionHouse**
+1. **Deposit funds to the OevAuctionHouse**
 
 You can use the
 [OEV network explorer](https://oev.explorer.api3.org/address/0x34f13A5C0AD750d212267bcBc230c87AEFD35CC5?tab=write_contract)

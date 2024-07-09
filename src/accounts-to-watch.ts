@@ -163,7 +163,6 @@ export const checkLiquidationPotentialOfAccounts = async (
   return accountsToWatch;
 };
 
-// TODO new function from upstream, needs documentation
 export const getOrbitLogs = async (fromBlock: number, toBlock: number) => {
   const logs = await blastProvider.getLogs({
     address: Object.values(oTokenAddresses),
